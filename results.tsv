@@ -105,3 +105,4 @@ exp	commit	acc	trans_acc	f1	status	description
 102	-	0.838	0.625	0.895	discard	LSTM h=128 3-layer patience=40 (same as exp 100)
 103	-	0.810	0.594	0.877	discard	permutation importance analysis (all 65)
 104	-	0.818	0.609	0.883	discard	top-35 perm-importance, LSTM=0.802 best so far trans>0.50
+105	-	0.814	0.578	0.880	discard	Spearman-35 w/ perm-importance swaps

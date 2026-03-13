@@ -32,22 +32,18 @@ warnings.filterwarnings("ignore")
 CONFIG = {
     # ── Features ──
     "features": [
-        # Spearman-35 with perm-importance swaps: drop 4 neg-perm features, add 4 high-perm
-        # Dropped: temporal_diff_mean, image_entropy, glcm_entropy, motion_pixel_ratio
-        # Added: mid_laplacian_var, mid_edge_density, small_edge_components, mscn_h_pair_mean
-        "glcm_energy", "brightness_std",
+        # Top-35 by Spearman correlation (best config)
+        "glcm_entropy", "image_entropy", "glcm_energy", "brightness_std",
         "rms_contrast", "glcm_contrast", "mscn_v_pair_mean",
         "gabor_nyquist_energy", "foreground_edge_density", "edge_density_coarse",
         "foreground_pixel_ratio", "edge_fine_coarse_ratio", "fast_keypoints_half",
         "shadow_pixel_ratio", "glcm_homogeneity", "gradient_magnitude_std",
         "spatial_frequency", "foreground_blob_count", "mid_gradient_std",
         "downsample_info_loss", "downsample_ssim", "mscn_mean",
-        "mid_high_freq_energy", "fft_critical_band_ratio",
-        "mscn_skewness", "temporal_diff_std",
+        "motion_pixel_ratio", "mid_high_freq_energy", "fft_critical_band_ratio",
+        "temporal_diff_mean", "mscn_skewness", "temporal_diff_std",
         "keypoint_loss_ratio", "saturation_std", "ratio_top_bot_gradient_std",
         "bot_gradient_std", "dark_channel_mean", "colorfulness", "mscn_h_pair_std",
-        # Perm-importance additions
-        "mid_laplacian_var", "mid_edge_density", "small_edge_components", "mscn_h_pair_mean",
     ],
 
     # ── Target definition ──
@@ -70,6 +66,7 @@ CONFIG = {
     "hidden_size": 128,
     "n_layers": 3,
     "dropout": 0.4,
+    "use_attention": True,          # temporal attention over LSTM outputs
     "use_dirichlet": False,        # True=Dirichlet head, False=plain softmax+CE
     "kl_annealing_epochs": 10,
 
@@ -252,13 +249,14 @@ def build_rf_features(X_windows):
 # ═══════════════════════════════════════════════════════════════════
 
 class SequenceModel(nn.Module):
-    """LSTM or GRU with optional Dirichlet or plain softmax head."""
+    """LSTM or GRU with optional attention and Dirichlet/softmax head."""
 
     def __init__(self, input_size):
         super().__init__()
         hidden = CONFIG["hidden_size"]
         n_layers = CONFIG["n_layers"]
         dropout = CONFIG["dropout"] if n_layers > 1 else 0.0
+        self.use_attention = CONFIG.get("use_attention", False)
 
         if CONFIG["model_type"] == "gru":
             self.rnn = nn.GRU(input_size=input_size, hidden_size=hidden,
@@ -266,6 +264,9 @@ class SequenceModel(nn.Module):
         else:
             self.rnn = nn.LSTM(input_size=input_size, hidden_size=hidden,
                                num_layers=n_layers, batch_first=True, dropout=dropout)
+
+        if self.use_attention:
+            self.attn = nn.Linear(hidden, 1)
 
         if CONFIG["use_dirichlet"]:
             self.head = nn.Sequential(
@@ -280,10 +281,19 @@ class SequenceModel(nn.Module):
 
     def forward(self, x):
         if CONFIG["model_type"] == "gru":
-            _, h_n = self.rnn(x)
+            rnn_out, _ = self.rnn(x)
         else:
-            _, (h_n, _) = self.rnn(x)
-        out = self.head(h_n[-1])
+            rnn_out, _ = self.rnn(x)
+
+        if self.use_attention:
+            # Temporal attention: weight each time step
+            attn_weights = torch.softmax(self.attn(rnn_out).squeeze(-1), dim=1)  # (batch, seq_len)
+            context = (attn_weights.unsqueeze(-1) * rnn_out).sum(dim=1)  # (batch, hidden)
+        else:
+            # Use last hidden state
+            context = rnn_out[:, -1, :]
+
+        out = self.head(context)
         if CONFIG["use_dirichlet"]:
             out = out + 1.0
         return out
