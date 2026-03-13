@@ -63,10 +63,10 @@ CONFIG = {
     "min_threshold": None,          # floor for threshold (None for miss_rate)
 
     # ── Windowing ──
-    "window": 30,
+    "window": 15,
     "horizon": 30,
     "train_stride": 15,
-    "eval_stride": 30,            # should equal window for non-overlapping val
+    "eval_stride": 15,            # should equal window for non-overlapping val
 
     # ── Temporal split ──
     "train_cutoff": 14400,
