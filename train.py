@@ -31,20 +31,7 @@ warnings.filterwarnings("ignore")
 
 CONFIG = {
     # ── Features ──
-    "features": [
-        # Top-35 by Spearman correlation (best RF config)
-        "glcm_entropy", "image_entropy", "glcm_energy", "brightness_std",
-        "rms_contrast", "glcm_contrast", "mscn_v_pair_mean",
-        "gabor_nyquist_energy", "foreground_edge_density", "edge_density_coarse",
-        "foreground_pixel_ratio", "edge_fine_coarse_ratio", "fast_keypoints_half",
-        "shadow_pixel_ratio", "glcm_homogeneity", "gradient_magnitude_std",
-        "spatial_frequency", "foreground_blob_count", "mid_gradient_std",
-        "downsample_info_loss", "downsample_ssim", "mscn_mean",
-        "motion_pixel_ratio", "mid_high_freq_energy", "fft_critical_band_ratio",
-        "temporal_diff_mean", "mscn_skewness", "temporal_diff_std",
-        "keypoint_loss_ratio", "saturation_std", "ratio_top_bot_gradient_std",
-        "bot_gradient_std", "dark_channel_mean", "colorfulness", "mscn_h_pair_std",
-    ],
+    "features": "all_65",  # all features for permutation importance
 
     # ── Target definition ──
     "target": "miss_rate",        # "fn_nano", "miss_rate", or "frame_f1"
@@ -74,7 +61,7 @@ CONFIG = {
     "weight_decay": 1e-5,
     "batch_size": 64,
     "max_epochs": 200,
-    "patience": 40,
+    "patience": 25,
     "grad_clip": 1.0,
     "seeds": [42, 123, 456, 789, 1337],  # 5 seeds for LSTM stability
 
@@ -88,6 +75,7 @@ CONFIG = {
     # ── Gradient feature selection ──
     "gradient_feature_selection": False,  # already computed
     "mi_feature_selection": False,  # already computed
+    "permutation_importance": True,  # LSTM permutation importance
 }
 
 # ═══════════════════════════════════════════════════════════════════
@@ -596,6 +584,43 @@ def main():
         for rank, (fname, score) in enumerate(mi_ranked, 1):
             print(f"  {rank:3d}. {fname:40s}  {score:.6f}", file=sys.stderr)
         print("=== END MI IMPORTANCE ===\n", file=sys.stderr)
+
+    # ── LSTM Permutation importance (if requested) ──
+    if CONFIG.get("permutation_importance"):
+        print("\n=== LSTM PERMUTATION IMPORTANCE ===", file=sys.stderr)
+        # Train LSTM with best seed, then permute each feature
+        perm_seeds = [42, 456, 1337]
+        perm_importance = np.zeros(n_feat)
+
+        for seed in perm_seeds:
+            torch.manual_seed(seed)
+            np.random.seed(seed)
+            model, _ = train_model(X_train, y_train, X_val, y_val, n_feat, device)
+
+            # Baseline accuracy
+            with torch.no_grad():
+                preds_base, _ = model.predict(torch.from_numpy(X_val).to(device))
+            base_acc = (preds_base.cpu().numpy() == y_val).mean()
+
+            # Permute each feature and measure accuracy drop
+            for fi in range(n_feat):
+                X_val_perm = X_val.copy()
+                np.random.seed(seed)
+                perm_idx = np.random.permutation(X_val_perm.shape[0])
+                X_val_perm[:, :, fi] = X_val_perm[perm_idx, :, fi]
+
+                with torch.no_grad():
+                    preds_perm, _ = model.predict(torch.from_numpy(X_val_perm).to(device))
+                perm_acc = (preds_perm.cpu().numpy() == y_val).mean()
+                perm_importance[fi] += (base_acc - perm_acc)
+
+            print(f"  Seed {seed}: base_acc={base_acc:.3f} done", file=sys.stderr)
+
+        perm_importance /= len(perm_seeds)
+        perm_ranked = sorted(zip(feature_cols, perm_importance), key=lambda x: x[1], reverse=True)
+        for rank, (fname, score) in enumerate(perm_ranked, 1):
+            print(f"  {rank:3d}. {fname:40s}  {score:.6f}", file=sys.stderr)
+        print("=== END PERMUTATION IMPORTANCE ===\n", file=sys.stderr)
 
     # ── Train ──
     best_metrics = None
