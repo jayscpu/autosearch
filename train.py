@@ -32,19 +32,22 @@ warnings.filterwarnings("ignore")
 CONFIG = {
     # ── Features ──
     "features": [
-        # Top-35 by LSTM permutation importance
-        "mid_gradient_std", "mid_laplacian_var", "foreground_pixel_ratio",
-        "mid_high_freq_energy", "colorfulness", "saturation_std",
-        "fast_keypoints_half", "glcm_homogeneity", "dark_channel_mean",
-        "mscn_v_pair_mean", "ratio_top_bot_gradient_std", "mid_edge_density",
-        "foreground_edge_density", "glcm_contrast", "gradient_magnitude_std",
-        "keypoint_loss_ratio", "bot_laplacian_var", "edge_fine_coarse_ratio",
-        "small_edge_components", "mscn_skewness", "mscn_h_pair_mean",
-        "shadow_pixel_ratio", "mscn_h_pair_std", "edge_density_coarse",
-        "fast_keypoints_full", "fft_critical_band_ratio", "spatial_frequency",
-        "foreground_blob_area_mean", "mean_brightness", "brightness_std",
-        "mscn_v_pair_std", "bot_gradient_std", "bot_edge_density",
-        "dct_high_freq_ratio", "glcm_energy",
+        # Spearman-35 with perm-importance swaps: drop 4 neg-perm features, add 4 high-perm
+        # Dropped: temporal_diff_mean, image_entropy, glcm_entropy, motion_pixel_ratio
+        # Added: mid_laplacian_var, mid_edge_density, small_edge_components, mscn_h_pair_mean
+        "glcm_energy", "brightness_std",
+        "rms_contrast", "glcm_contrast", "mscn_v_pair_mean",
+        "gabor_nyquist_energy", "foreground_edge_density", "edge_density_coarse",
+        "foreground_pixel_ratio", "edge_fine_coarse_ratio", "fast_keypoints_half",
+        "shadow_pixel_ratio", "glcm_homogeneity", "gradient_magnitude_std",
+        "spatial_frequency", "foreground_blob_count", "mid_gradient_std",
+        "downsample_info_loss", "downsample_ssim", "mscn_mean",
+        "mid_high_freq_energy", "fft_critical_band_ratio",
+        "mscn_skewness", "temporal_diff_std",
+        "keypoint_loss_ratio", "saturation_std", "ratio_top_bot_gradient_std",
+        "bot_gradient_std", "dark_channel_mean", "colorfulness", "mscn_h_pair_std",
+        # Perm-importance additions
+        "mid_laplacian_var", "mid_edge_density", "small_edge_components", "mscn_h_pair_mean",
     ],
 
     # ── Target definition ──
