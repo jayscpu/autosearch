@@ -70,7 +70,7 @@ CONFIG = {
     "kl_annealing_epochs": 10,
 
     # ── Training ──
-    "lr": 5e-4,
+    "lr": 1e-3,
     "weight_decay": 1e-5,
     "batch_size": 64,
     "max_epochs": 200,
