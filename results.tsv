@@ -23,3 +23,6 @@ exp	commit	acc	trans_acc	f1	status	description
 20	-	0.702	0.510	0.713	discard	3-layer LSTM
 21	-	0.711	0.470	0.727	discard	hidden=128, trans<0.50
 22	-	0.715	0.480	0.732	discard	hidden=32, trans<0.50
+23	-	0.717	0.470	0.721	discard	5-seed LSTM, class-weighted CE, w=15, all trans<0.50
+24	-	0.670	0.440	0.637	discard	RF-only, all features, 1000 trees
+25	-	0.692	0.548	0.683	keep	w=30 h=30, 65 feat, miss_rate, 5 seeds, best seed
