@@ -30,31 +30,17 @@ warnings.filterwarnings("ignore")
 CONFIG = {
     # ── Features ──
     "features": [
-        # All 65 features
-        "bot_edge_density", "bot_gradient_std", "bot_high_freq_energy",
-        "bot_laplacian_var", "brightness_std", "colorfulness",
-        "dark_channel_mean", "dct_high_freq_ratio", "downsample_info_loss",
-        "downsample_ssim", "edge_density_coarse", "edge_density_fine",
-        "edge_fine_coarse_ratio", "fast_keypoints_full", "fast_keypoints_half",
-        "fft_critical_band_ratio", "fft_high_freq_energy_ratio",
-        "foreground_blob_area_mean", "foreground_blob_area_std",
-        "foreground_blob_count", "foreground_blob_pa_ratio",
-        "foreground_edge_density", "foreground_pixel_ratio",
-        "gabor_nyquist_energy", "glcm_contrast", "glcm_energy",
-        "glcm_entropy", "glcm_homogeneity", "gradient_magnitude_mean",
-        "gradient_magnitude_std", "image_entropy", "keypoint_loss_ratio",
-        "laplacian_mean_abs", "laplacian_variance", "mean_brightness",
-        "mid_edge_density", "mid_gradient_std", "mid_high_freq_energy",
-        "mid_laplacian_var", "motion_pixel_ratio", "mscn_h_pair_mean",
-        "mscn_h_pair_std", "mscn_kurtosis", "mscn_mean", "mscn_skewness",
-        "mscn_std", "mscn_v_pair_mean", "mscn_v_pair_std",
-        "overall_edge_density", "ratio_top_bot_edge_density",
-        "ratio_top_bot_gradient_std", "ratio_top_bot_laplacian_var",
-        "rms_contrast", "saturation_mean", "saturation_std",
-        "shadow_pixel_ratio", "small_edge_components", "spatial_frequency",
-        "temporal_diff_mean", "temporal_diff_std", "top_edge_density",
-        "top_gradient_std", "top_high_freq_energy", "top_laplacian_var",
-        "total_edge_components",
+        # Top-30 by Spearman correlation with miss_rate on Fresno training data
+        "glcm_entropy", "image_entropy", "glcm_energy", "brightness_std",
+        "rms_contrast", "glcm_contrast", "mscn_v_pair_mean",
+        "gabor_nyquist_energy", "foreground_edge_density", "edge_density_coarse",
+        "foreground_pixel_ratio", "edge_fine_coarse_ratio", "fast_keypoints_half",
+        "shadow_pixel_ratio", "glcm_homogeneity", "gradient_magnitude_std",
+        "spatial_frequency", "foreground_blob_count", "mid_gradient_std",
+        "downsample_info_loss", "downsample_ssim", "mscn_mean",
+        "motion_pixel_ratio", "mid_high_freq_energy", "fft_critical_band_ratio",
+        "temporal_diff_mean", "mscn_skewness", "temporal_diff_std",
+        "keypoint_loss_ratio", "saturation_std",
     ],
 
     # ── Target definition ──

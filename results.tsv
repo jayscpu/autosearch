@@ -58,3 +58,4 @@ exp	commit	acc	trans_acc	f1	status	description
 55	-	0.785	0.459	0.861	discard	w=15 p=25, trans<0.50
 56	-	0.778	0.469	0.854	discard	w=40 p=25, trans<0.50
 57	-	0.802	0.591	0.869	discard	h=20 p=25
+58	-	0.826	0.625	0.885	keep	top-30 features, p=25, RF
