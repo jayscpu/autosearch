@@ -3,3 +3,4 @@ exp	commit	acc	trans_acc	f1	status	description
 0	bb38ad4	0.664	0.560	-	baseline	miss_rate target, plain softmax CE, 20 features, w=30 h=30 RF
 1	-	0.640	0.620	0.714	keep	drop Dirichlet, plain softmax CE, 20 features, w=30 h=30
 2	-	0.680	0.524	0.675	keep	miss_rate target, no min_threshold, 20 features, w=30 h=30
+3	-	0.684	0.536	0.669	keep	all 65 features, miss_rate, w=30 h=30
