@@ -31,3 +31,9 @@ exp	commit	acc	trans_acc	f1	status	description
 28	-	0.709	0.560	0.719	keep	dropout=0.4
 29	-	0.696	0.536	0.694	discard	dropout=0.5
 30	-	0.713	0.571	0.722	keep	lr=5e-4
+31	-	0.688	0.524	0.680	discard	lr=2e-4
+32	-	0.709	0.560	0.702	discard	lr=2e-3
+33	-	0.704	0.548	0.689	discard	weight_decay=1e-3
+34	-	0.696	0.536	0.701	discard	weight_decay=1e-4
+35	-	0.704	0.524	0.714	discard	batch_size=32
+36	-	0.700	0.512	0.711	discard	batch_size=128
