@@ -30,7 +30,7 @@ warnings.filterwarnings("ignore")
 CONFIG = {
     # ── Features ──
     "features": [
-        # Top-30 by Spearman correlation with miss_rate on Fresno training data
+        # Top-35 by Spearman correlation with miss_rate on Fresno training data
         "glcm_entropy", "image_entropy", "glcm_energy", "brightness_std",
         "rms_contrast", "glcm_contrast", "mscn_v_pair_mean",
         "gabor_nyquist_energy", "foreground_edge_density", "edge_density_coarse",
@@ -40,7 +40,8 @@ CONFIG = {
         "downsample_info_loss", "downsample_ssim", "mscn_mean",
         "motion_pixel_ratio", "mid_high_freq_energy", "fft_critical_band_ratio",
         "temporal_diff_mean", "mscn_skewness", "temporal_diff_std",
-        "keypoint_loss_ratio", "saturation_std",
+        "keypoint_loss_ratio", "saturation_std", "ratio_top_bot_gradient_std",
+        "bot_gradient_std", "dark_channel_mean", "colorfulness", "mscn_h_pair_std",
     ],
 
     # ── Target definition ──
