@@ -77,7 +77,7 @@ CONFIG = {
     "max_epochs": 200,
     "patience": 25,
     "grad_clip": 1.0,
-    "label_smoothing": 0.1,
+    "label_smoothing": 0.15,
     "seeds": [42, 123, 456, 789, 1337],  # 5 seeds for LSTM stability
 
     # ── RF ──
