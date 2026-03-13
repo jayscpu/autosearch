@@ -64,7 +64,7 @@ CONFIG = {
     # ── Model ──
     "model_type": "lstm",          # "lstm", "gru", "rf_only"
     "hidden_size": 128,
-    "n_layers": 2,
+    "n_layers": 3,
     "dropout": 0.4,
     "use_attention": False,          # attention didn't help
     "use_dirichlet": False,        # True=Dirichlet head, False=plain softmax+CE
