@@ -76,7 +76,7 @@ CONFIG = {
     "model_type": "lstm",          # "lstm", "gru", "rf_only"
     "hidden_size": 64,
     "n_layers": 2,
-    "dropout": 0.2,
+    "dropout": 0.4,
     "use_dirichlet": False,        # True=Dirichlet head, False=plain softmax+CE
     "kl_annealing_epochs": 10,
 
@@ -87,7 +87,7 @@ CONFIG = {
     "max_epochs": 200,
     "patience": 25,
     "grad_clip": 1.0,
-    "seeds": [42, 123, 456, 789, 1024],  # seed list
+    "seeds": [123, 789],            # best performing seeds
 
     # ── RF ──
     "rf_n_estimators": 500,
