@@ -43,9 +43,8 @@ CONFIG = {
         "temporal_diff_mean", "mscn_skewness", "temporal_diff_std",
         "keypoint_loss_ratio", "saturation_std", "ratio_top_bot_gradient_std",
         "bot_gradient_std", "dark_channel_mean", "colorfulness", "mscn_h_pair_std",
-        # Gradient-unique additions (top-5 by gradient importance not in Spearman-35)
-        "mscn_h_pair_mean", "top_gradient_std", "dct_high_freq_ratio",
-        "ratio_top_bot_edge_density", "foreground_blob_pa_ratio",
+        # Gradient-unique additions (top-2 by gradient importance not in Spearman-35)
+        "mscn_h_pair_mean", "top_gradient_std",
     ],
 
     # ── Target definition ──

@@ -94,3 +94,4 @@ exp	commit	acc	trans_acc	f1	status	description
 91	-	0.810	0.594	0.877	discard	all 65 features + gradient importance analysis, p=25
 92	-	0.806	0.578	0.876	discard	top-35 gradient-importance features, p=25
 93	-	0.802	0.594	0.873	discard	top-20 gradient-importance features, p=25
+94	-	0.826	0.609	0.885	discard	hybrid Spearman-35 + top-5 gradient-unique (40 feat)
