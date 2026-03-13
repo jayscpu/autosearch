@@ -8,3 +8,7 @@ exp	commit	acc	trans_acc	f1	status	description
 5	-	0.671	0.406	0.661	discard	w=20 h=30, 65 features, miss_rate
 6	-	0.718	0.454	0.747	discard	w=10 h=30, trans_acc<0.50
 7	-	0.659	0.507	0.627	discard	w=40 h=30, 65 features
+8	-	0.691	0.529	0.690	discard	w=15 h=15, 65 features
+9	-	0.698	0.545	0.677	discard	w=15 h=10, 65 features
+10	-	0.673	0.371	0.668	discard	w=15 h=45, trans<0.50
+11	-	0.701	0.450	0.716	discard	w=15 h=20, trans<0.50
