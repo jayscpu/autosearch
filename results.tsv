@@ -72,3 +72,5 @@ exp	commit	acc	trans_acc	f1	status	description
 69	-	0.822	0.609	0.884	discard	RF min_leaf=3
 70	-	0.822	0.609	0.882	discard	RF min_leaf=15
 71	-	0.826	0.609	0.885	discard	RF 2000 trees
+72	-	0.818	0.594	0.883	discard	percentile=23
+73	-	0.818	0.609	0.876	discard	percentile=28
