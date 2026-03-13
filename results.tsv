@@ -101,3 +101,4 @@ exp	commit	acc	trans_acc	f1	status	description
 98	-	0.810	0.656	0.875	keep	LSTM h=128, seed 456, best LSTM so far!
 99	-	0.798	0.531	0.860	discard	LSTM h=128 dropout=0.5
 100	-	0.838	0.625	0.895	keep	LSTM+RF ensemble, h=128, 3-layer — NEW BEST!
+101	-	0.806	0.641	0.867	discard	LSTM h=128 3-layer lr=1e-3 (ensemble=0.830)

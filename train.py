@@ -70,11 +70,11 @@ CONFIG = {
     "kl_annealing_epochs": 10,
 
     # ── Training ──
-    "lr": 1e-3,
+    "lr": 5e-4,
     "weight_decay": 1e-5,
     "batch_size": 64,
     "max_epochs": 200,
-    "patience": 25,
+    "patience": 40,
     "grad_clip": 1.0,
     "seeds": [42, 123, 456, 789, 1337],  # 5 seeds for LSTM stability
 
