@@ -30,6 +30,7 @@ warnings.filterwarnings("ignore")
 CONFIG = {
     # ── Features ──
     "features": [
+        # All 65 features
         "bot_edge_density", "bot_gradient_std", "bot_high_freq_energy",
         "bot_laplacian_var", "brightness_std", "colorfulness",
         "dark_channel_mean", "dct_high_freq_ratio", "downsample_info_loss",

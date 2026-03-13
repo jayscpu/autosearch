@@ -12,3 +12,9 @@ exp	commit	acc	trans_acc	f1	status	description
 9	-	0.698	0.545	0.677	discard	w=15 h=10, 65 features
 10	-	0.673	0.371	0.668	discard	w=15 h=45, trans<0.50
 11	-	0.701	0.450	0.716	discard	w=15 h=20, trans<0.50
+12	-	0.698	0.450	0.681	discard	top-10 spearman features, trans<0.50
+13	-	0.700	0.460	0.718	discard	top-15 spearman features, trans<0.50
+14	-	0.704	0.470	0.692	discard	top-20 spearman features, trans<0.50
+15	-	0.709	0.480	0.715	discard	top-25 spearman features, trans<0.50
+16	-	0.700	0.420	0.710	discard	top-30 spearman features, trans<0.50
+17	-	0.702	0.410	0.702	discard	top-40 spearman features, trans<0.50
