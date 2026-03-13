@@ -81,3 +81,8 @@ exp	commit	acc	trans_acc	f1	status	description
 78	-	0.794	0.594	0.861	discard	XGBoost
 79	-	0.818	0.609	0.879	discard	RF+GBM+XGB ensemble
 80	-	0.830	0.594	0.888	discard	RF max_features=log2
+81	-	0.822	0.594	0.884	discard	RF minmax features with top-35
+82	-	0.834	0.625	0.891	discard	seed 789, h=128, dropout=0.5 (same)
+83	-	0.818	0.594	0.879	discard	RF max_features=0.5
+84	-	0.814	0.609	0.878	discard	top-35 + foreground_blob_area_mean
+85	-	0.818	0.609	0.895	discard	fn_nano target p=25 (majority=0.810, inflated)
