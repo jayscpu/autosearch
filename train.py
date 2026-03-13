@@ -40,10 +40,10 @@ CONFIG = {
     ],
 
     # ── Target definition ──
-    "target": "fn_nano",          # "fn_nano", "miss_rate", or "frame_f1"
+    "target": "miss_rate",        # "fn_nano", "miss_rate", or "frame_f1"
     "threshold_method": "median",  # "median", "fixed", "percentile"
     "threshold_value": None,       # used if threshold_method="fixed"
-    "min_threshold": 1.0,          # floor for threshold
+    "min_threshold": None,          # floor for threshold (None for miss_rate)
 
     # ── Windowing ──
     "window": 30,
