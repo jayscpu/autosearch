@@ -55,3 +55,6 @@ exp	commit	acc	trans_acc	f1	status	description
 52	-	0.818	0.625	0.883	discard	RF minmax (same)
 53	-	0.818	0.609	0.882	discard	RF 1000 trees no depth limit
 54	-	0.761	0.578	0.828	discard	RF class_weight=balanced
+55	-	0.785	0.459	0.861	discard	w=15 p=25, trans<0.50
+56	-	0.778	0.469	0.854	discard	w=40 p=25, trans<0.50
+57	-	0.802	0.591	0.869	discard	h=20 p=25
