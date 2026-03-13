@@ -86,3 +86,6 @@ exp	commit	acc	trans_acc	f1	status	description
 83	-	0.818	0.594	0.879	discard	RF max_features=0.5
 84	-	0.814	0.609	0.878	discard	top-35 + foreground_blob_area_mean
 85	-	0.818	0.609	0.895	discard	fn_nano target p=25 (majority=0.810, inflated)
+86	-	0.802	0.531	0.873	discard	train_stride=30
+87	-	0.814	0.609	0.878	discard	RF random_state=123
+88	-	0.818	0.594	0.880	discard	RF random_state=7
