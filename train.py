@@ -94,6 +94,7 @@ CONFIG = {
     "rf_max_depth": 20,
     "rf_min_samples_leaf": 10,
     "rf_features": "mean_std_slope",  # "mean_std_slope", "mean_std_slope_minmax", "all"
+    "rf_class_weight": None,        # None, "balanced", "balanced_subsample"
 }
 
 # ═══════════════════════════════════════════════════════════════════
@@ -533,7 +534,8 @@ def main():
         n_estimators=CONFIG["rf_n_estimators"],
         max_depth=CONFIG["rf_max_depth"],
         min_samples_leaf=CONFIG["rf_min_samples_leaf"],
-        max_features="sqrt", n_jobs=-1, random_state=42)
+        max_features="sqrt", n_jobs=-1, random_state=42,
+        class_weight=CONFIG.get("rf_class_weight", None))
     rf.fit(X_train_rf, y_train)
     rf_pred = rf.predict(X_val_rf)
     rf_metrics = evaluate(y_val, rf_pred)
