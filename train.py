@@ -17,7 +17,8 @@ import torch
 import torch.nn as nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader, TensorDataset
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from sklearn.preprocessing import StandardScaler
 
@@ -530,6 +531,51 @@ def main():
     if best_metrics is None or rf_metrics["acc"] > best_metrics["acc"]:
         best_metrics = rf_metrics
         best_name = "RF"
+
+    # ── GBM ──
+    gbm = GradientBoostingClassifier(
+        n_estimators=500, max_depth=4, learning_rate=0.05,
+        min_samples_leaf=10, subsample=0.8, random_state=42)
+    gbm.fit(X_train_rf, y_train)
+    gbm_pred = gbm.predict(X_val_rf)
+    gbm_metrics = evaluate(y_val, gbm_pred)
+    print(f"  GBM:           acc={gbm_metrics['acc']:.3f}  f1={gbm_metrics['f1']:.3f}  trans={gbm_metrics['trans_acc']:.3f}", file=sys.stderr)
+
+    if gbm_metrics["acc"] > best_metrics["acc"]:
+        best_metrics = gbm_metrics
+        best_name = "GBM"
+
+    # ── XGBoost ──
+    xgb = XGBClassifier(
+        n_estimators=500, max_depth=6, learning_rate=0.05,
+        subsample=0.8, colsample_bytree=0.8, min_child_weight=5,
+        random_state=42, verbosity=0)
+    xgb.fit(X_train_rf, y_train)
+    xgb_pred = xgb.predict(X_val_rf)
+    xgb_metrics = evaluate(y_val, xgb_pred)
+    print(f"  XGB:           acc={xgb_metrics['acc']:.3f}  f1={xgb_metrics['f1']:.3f}  trans={xgb_metrics['trans_acc']:.3f}", file=sys.stderr)
+
+    if xgb_metrics["acc"] > best_metrics["acc"]:
+        best_metrics = xgb_metrics
+        best_name = "XGB"
+
+    # ── Tree ensemble (RF+GBM+XGB majority vote) ──
+    tree_vote = (rf_pred.astype(int) + gbm_pred.astype(int) + xgb_pred.astype(int))
+    tree_ensemble_pred = (tree_vote >= 2).astype(np.int64)
+    tree_ensemble_metrics = evaluate(y_val, tree_ensemble_pred)
+    print(f"  TreeEnsemble:  acc={tree_ensemble_metrics['acc']:.3f}  f1={tree_ensemble_metrics['f1']:.3f}  trans={tree_ensemble_metrics['trans_acc']:.3f}", file=sys.stderr)
+    if tree_ensemble_metrics["acc"] > best_metrics["acc"]:
+        best_metrics = tree_ensemble_metrics
+        best_name = "TreeEnsemble"
+
+    # ── LSTM+RF ensemble ──
+    if CONFIG["model_type"] != "rf_only" and lstm_pred is not None:
+        combo_pred = ((lstm_pred + rf_pred) >= 1).astype(np.int64)
+        combo_metrics = evaluate(y_val, combo_pred)
+        print(f"  LSTM+RF:       acc={combo_metrics['acc']:.3f}  f1={combo_metrics['f1']:.3f}  trans={combo_metrics['trans_acc']:.3f}", file=sys.stderr)
+        if combo_metrics["acc"] > best_metrics["acc"] and combo_metrics["trans_acc"] > 0.50:
+            best_metrics = combo_metrics
+            best_name = "LSTM+RF"
 
     # ── Pick best ──
     m = best_metrics
