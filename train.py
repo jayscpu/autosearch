@@ -66,7 +66,7 @@ CONFIG = {
     # ── Windowing ──
     "window": 30,
     "horizon": 30,
-    "train_stride": 15,
+    "train_stride": 10,
     "eval_stride": 30,            # should equal window for non-overlapping val
 
     # ── Temporal split ──
