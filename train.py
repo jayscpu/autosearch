@@ -31,7 +31,21 @@ warnings.filterwarnings("ignore")
 
 CONFIG = {
     # ── Features ──
-    "features": "all_65",  # all features for permutation importance
+    "features": [
+        # Top-35 by LSTM permutation importance
+        "mid_gradient_std", "mid_laplacian_var", "foreground_pixel_ratio",
+        "mid_high_freq_energy", "colorfulness", "saturation_std",
+        "fast_keypoints_half", "glcm_homogeneity", "dark_channel_mean",
+        "mscn_v_pair_mean", "ratio_top_bot_gradient_std", "mid_edge_density",
+        "foreground_edge_density", "glcm_contrast", "gradient_magnitude_std",
+        "keypoint_loss_ratio", "bot_laplacian_var", "edge_fine_coarse_ratio",
+        "small_edge_components", "mscn_skewness", "mscn_h_pair_mean",
+        "shadow_pixel_ratio", "mscn_h_pair_std", "edge_density_coarse",
+        "fast_keypoints_full", "fft_critical_band_ratio", "spatial_frequency",
+        "foreground_blob_area_mean", "mean_brightness", "brightness_std",
+        "mscn_v_pair_std", "bot_gradient_std", "bot_edge_density",
+        "dct_high_freq_ratio", "glcm_energy",
+    ],
 
     # ── Target definition ──
     "target": "miss_rate",        # "fn_nano", "miss_rate", or "frame_f1"
@@ -75,7 +89,7 @@ CONFIG = {
     # ── Gradient feature selection ──
     "gradient_feature_selection": False,  # already computed
     "mi_feature_selection": False,  # already computed
-    "permutation_importance": True,  # LSTM permutation importance
+    "permutation_importance": False,  # already computed
 }
 
 # ═══════════════════════════════════════════════════════════════════
