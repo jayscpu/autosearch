@@ -30,20 +30,7 @@ warnings.filterwarnings("ignore")
 
 CONFIG = {
     # ── Features ──
-    "features": [
-        # Top-35 by Spearman correlation with miss_rate on Fresno training data
-        "glcm_entropy", "image_entropy", "glcm_energy", "brightness_std",
-        "rms_contrast", "glcm_contrast", "mscn_v_pair_mean",
-        "gabor_nyquist_energy", "foreground_edge_density", "edge_density_coarse",
-        "foreground_pixel_ratio", "edge_fine_coarse_ratio", "fast_keypoints_half",
-        "shadow_pixel_ratio", "glcm_homogeneity", "gradient_magnitude_std",
-        "spatial_frequency", "foreground_blob_count", "mid_gradient_std",
-        "downsample_info_loss", "downsample_ssim", "mscn_mean",
-        "motion_pixel_ratio", "mid_high_freq_energy", "fft_critical_band_ratio",
-        "temporal_diff_mean", "mscn_skewness", "temporal_diff_std",
-        "keypoint_loss_ratio", "saturation_std", "ratio_top_bot_gradient_std",
-        "bot_gradient_std", "dark_channel_mean", "colorfulness", "mscn_h_pair_std",
-    ],
+    "features": "all_65",  # Use all 65 features for gradient importance analysis
 
     # ── Target definition ──
     "target": "miss_rate",        # "fn_nano", "miss_rate", or "frame_f1"
@@ -83,6 +70,9 @@ CONFIG = {
     "rf_min_samples_leaf": 10,
     "rf_features": "mean_std_slope",  # "mean_std_slope", "mean_std_slope_minmax", "all"
     "rf_class_weight": None,        # None, "balanced", "balanced_subsample"
+
+    # ── Gradient feature selection ──
+    "gradient_feature_selection": True,  # compute per-feature gradient importance
 }
 
 # ═══════════════════════════════════════════════════════════════════
@@ -421,6 +411,69 @@ def compute_baselines(y_train, y_val):
 
 
 # ═══════════════════════════════════════════════════════════════════
+# GRADIENT-BASED FEATURE IMPORTANCE
+# ═══════════════════════════════════════════════════════════════════
+
+def compute_gradient_importance(X_train, y_train, X_val, y_val, n_feat, device, feature_names):
+    """Train LSTM and measure per-feature gradient magnitudes.
+
+    For each feature, we accumulate |dL/dx_i| over all training batches across
+    all epochs. Features that the LSTM relies on most will have larger gradients.
+    We average across multiple seeds for stability.
+    """
+    seeds = [42, 123, 456]
+    importance_accum = np.zeros(n_feat, dtype=np.float64)
+
+    for seed in seeds:
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+
+        model = SequenceModel(input_size=n_feat).to(device)
+        optimizer = Adam(model.parameters(), lr=CONFIG["lr"], weight_decay=CONFIG["weight_decay"])
+        ce_loss_fn = nn.CrossEntropyLoss()
+
+        train_loader = DataLoader(
+            TensorDataset(torch.from_numpy(X_train), torch.from_numpy(y_train)),
+            batch_size=CONFIG["batch_size"], shuffle=True)
+
+        feat_grad_sum = np.zeros(n_feat, dtype=np.float64)
+        n_batches = 0
+
+        # Train for limited epochs to get stable gradients
+        for epoch in range(min(50, CONFIG["max_epochs"])):
+            model.train()
+            for xb, yb in train_loader:
+                xb, yb = xb.to(device), yb.to(device)
+                xb.requires_grad_(True)
+
+                out = model(xb)
+                loss = ce_loss_fn(out, yb)
+
+                optimizer.zero_grad()
+                loss.backward()
+
+                # Accumulate input gradient magnitudes per feature
+                # xb shape: (batch, window, n_feat)
+                with torch.no_grad():
+                    grad_mag = xb.grad.abs().mean(dim=(0, 1))  # average over batch and time
+                    feat_grad_sum += grad_mag.cpu().numpy()
+                    n_batches += 1
+
+                nn.utils.clip_grad_norm_(model.parameters(), CONFIG["grad_clip"])
+                optimizer.step()
+
+        importance_accum += feat_grad_sum / max(n_batches, 1)
+        print(f"  Gradient importance: seed {seed} done ({n_batches} batches)", file=sys.stderr)
+
+    # Average across seeds
+    importance_accum /= len(seeds)
+
+    # Sort by importance (descending)
+    ranked = sorted(zip(feature_names, importance_accum), key=lambda x: x[1], reverse=True)
+    return ranked
+
+
+# ═══════════════════════════════════════════════════════════════════
 # MAIN
 # ═══════════════════════════════════════════════════════════════════
 
@@ -430,7 +483,36 @@ def main():
 
     # ── Load data ──
     df = load_data()
-    feature_cols = CONFIG["features"]
+
+    # Resolve "all_65" to actual feature columns
+    ALL_65_FEATURES = [
+        "fast_keypoints_half", "edge_density_coarse", "gradient_magnitude_mean",
+        "gabor_nyquist_energy", "fast_keypoints_full", "glcm_homogeneity",
+        "overall_edge_density", "top_edge_density", "top_high_freq_energy",
+        "top_gradient_std", "fft_critical_band_ratio", "total_edge_components",
+        "top_laplacian_var", "glcm_entropy", "mid_edge_density", "dark_channel_mean",
+        "mid_gradient_std", "foreground_blob_count", "mid_high_freq_energy",
+        "rms_contrast", "fft_high_freq_energy_ratio", "laplacian_variance",
+        "laplacian_mean_abs", "edge_density_fine", "edge_fine_coarse_ratio",
+        "keypoint_loss_ratio", "spatial_frequency", "gradient_magnitude_std",
+        "dct_high_freq_ratio", "downsample_ssim", "downsample_info_loss",
+        "foreground_pixel_ratio", "shadow_pixel_ratio", "foreground_blob_area_mean",
+        "foreground_blob_area_std", "foreground_blob_pa_ratio",
+        "foreground_edge_density", "temporal_diff_mean", "temporal_diff_std",
+        "motion_pixel_ratio", "image_entropy", "glcm_contrast", "glcm_energy",
+        "colorfulness", "mean_brightness", "brightness_std", "small_edge_components",
+        "saturation_mean", "saturation_std", "mscn_mean", "mscn_std",
+        "mscn_kurtosis", "mscn_skewness", "mscn_h_pair_mean", "mscn_h_pair_std",
+        "mscn_v_pair_mean", "mscn_v_pair_std", "mid_laplacian_var",
+        "bot_laplacian_var", "bot_gradient_std", "bot_edge_density",
+        "bot_high_freq_energy", "ratio_top_bot_edge_density",
+        "ratio_top_bot_gradient_std", "ratio_top_bot_laplacian_var",
+    ]
+
+    if CONFIG["features"] == "all_65":
+        feature_cols = ALL_65_FEATURES
+    else:
+        feature_cols = CONFIG["features"]
     target_col = get_target_column()
 
     # Verify features exist
@@ -468,6 +550,16 @@ def main():
 
     # ── Baselines ──
     maj_metrics, pers_metrics = compute_baselines(y_train, y_val)
+
+    # ── Gradient-based feature importance (if requested) ──
+    if CONFIG.get("gradient_feature_selection"):
+        grad_importance = compute_gradient_importance(X_train, y_train, X_val, y_val, n_feat, device, feature_cols)
+        # Print ranking and exit — the agent will use this to select features
+        print("\n=== GRADIENT FEATURE IMPORTANCE ===", file=sys.stderr)
+        for rank, (fname, score) in enumerate(grad_importance, 1):
+            print(f"  {rank:3d}. {fname:40s}  {score:.6f}", file=sys.stderr)
+        print("=== END GRADIENT IMPORTANCE ===\n", file=sys.stderr)
+        # Still continue with normal training
 
     # ── Train ──
     best_metrics = None
