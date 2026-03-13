@@ -64,9 +64,9 @@ CONFIG = {
     # ── Model ──
     "model_type": "lstm",          # "lstm", "gru", "rf_only"
     "hidden_size": 128,
-    "n_layers": 3,
+    "n_layers": 2,
     "dropout": 0.4,
-    "use_attention": True,          # temporal attention over LSTM outputs
+    "use_attention": False,          # attention didn't help
     "use_dirichlet": False,        # True=Dirichlet head, False=plain softmax+CE
     "kl_annealing_epochs": 10,
 
@@ -77,6 +77,7 @@ CONFIG = {
     "max_epochs": 200,
     "patience": 25,
     "grad_clip": 1.0,
+    "label_smoothing": 0.1,
     "seeds": [42, 123, 456, 789, 1337],  # 5 seeds for LSTM stability
 
     # ── RF ──
@@ -348,7 +349,8 @@ def train_model(X_train, y_train, X_val, y_val, n_feat, device):
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode="max", factor=0.5, patience=10, min_lr=1e-6)
 
-    ce_loss_fn = nn.CrossEntropyLoss()
+    label_smoothing = CONFIG.get("label_smoothing", 0.0)
+    ce_loss_fn = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
 
     best_acc, best_state, patience_counter = 0.0, None, 0
 
@@ -460,7 +462,8 @@ def compute_gradient_importance(X_train, y_train, X_val, y_val, n_feat, device, 
 
         model = SequenceModel(input_size=n_feat).to(device)
         optimizer = Adam(model.parameters(), lr=CONFIG["lr"], weight_decay=CONFIG["weight_decay"])
-        ce_loss_fn = nn.CrossEntropyLoss()
+        label_smoothing = CONFIG.get("label_smoothing", 0.0)
+    ce_loss_fn = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
 
         train_loader = DataLoader(
             TensorDataset(torch.from_numpy(X_train), torch.from_numpy(y_train)),
