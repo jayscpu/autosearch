@@ -60,7 +60,7 @@ CONFIG = {
     # ── Target definition ──
     "target": "miss_rate",        # "fn_nano", "miss_rate", or "frame_f1"
     "threshold_method": "percentile",  # "median", "fixed", "percentile"
-    "threshold_value": 30,         # 30th percentile
+    "threshold_value": 25,         # 25th percentile
     "min_threshold": None,          # floor for threshold (None for miss_rate)
 
     # ── Windowing ──
