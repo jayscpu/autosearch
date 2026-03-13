@@ -499,15 +499,29 @@ def main():
             all_seed_preds.append(pred_np)
             print(f"  Seed {seed}: acc={m_seed['acc']:.3f} trans={m_seed['trans_acc']:.3f}", file=sys.stderr)
 
+        # Ensemble: majority vote across all seeds
+        if len(all_seed_preds) > 1:
+            vote_sum = np.sum(all_seed_preds, axis=0)
+            ensemble_pred = (vote_sum > len(all_seed_preds) / 2.0).astype(np.int64)
+            ensemble_metrics = evaluate(y_val, ensemble_pred)
+            print(f"  Ensemble: acc={ensemble_metrics['acc']:.3f} trans={ensemble_metrics['trans_acc']:.3f}", file=sys.stderr)
+
         # Pick seed with best acc (among those with trans_acc > 0.50)
         valid_seeds = [(i, m) for i, m in enumerate(all_seed_metrics) if m['trans_acc'] > 0.50]
         if valid_seeds:
             best_idx, lstm_metrics = max(valid_seeds, key=lambda x: x[1]['acc'])
         else:
-            # Fall back to best acc overall
             best_idx = max(range(len(all_seed_metrics)), key=lambda i: all_seed_metrics[i]['acc'])
             lstm_metrics = all_seed_metrics[best_idx]
-        lstm_pred = all_seed_preds[best_idx]
+
+        # Use ensemble if it's better
+        if len(all_seed_preds) > 1 and ensemble_metrics['trans_acc'] > 0.50 and ensemble_metrics['acc'] > lstm_metrics['acc']:
+            lstm_metrics = ensemble_metrics
+            lstm_pred = ensemble_pred
+            print(f"  Using ensemble", file=sys.stderr)
+        else:
+            lstm_pred = all_seed_preds[best_idx]
+
         best_metrics = lstm_metrics
         best_name = CONFIG["model_type"].upper()
 

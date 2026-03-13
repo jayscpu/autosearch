@@ -37,3 +37,6 @@ exp	commit	acc	trans_acc	f1	status	description
 34	-	0.696	0.536	0.701	discard	weight_decay=1e-4
 35	-	0.704	0.524	0.714	discard	batch_size=32
 36	-	0.700	0.512	0.711	discard	batch_size=128
+37	-	0.700	0.536	0.699	discard	hidden=256
+38	-	0.713	0.560	0.722	discard	grad_clip=0.5 (same as best)
+39	-	0.713	0.571	0.722	discard	5-seed ensemble (ensemble=0.688 < best seed=0.713)
