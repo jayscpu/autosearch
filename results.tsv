@@ -66,3 +66,9 @@ exp	commit	acc	trans_acc	f1	status	description
 63	-	0.826	0.625	0.885	discard	top-37 features
 64	-	0.822	0.609	0.883	discard	top-35 minus mscn_h_pair_std
 65	-	0.826	0.609	0.885	discard	top-35 + mscn_std
+66	-	0.834	0.625	0.891	discard	RF depth=15 (same as depth=20)
+67	-	0.822	0.609	0.882	discard	RF depth=10
+68	-	0.834	0.625	0.891	discard	RF depth=25 (same)
+69	-	0.822	0.609	0.884	discard	RF min_leaf=3
+70	-	0.822	0.609	0.882	discard	RF min_leaf=15
+71	-	0.826	0.609	0.885	discard	RF 2000 trees
