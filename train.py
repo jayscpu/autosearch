@@ -21,6 +21,7 @@ from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from sklearn.preprocessing import StandardScaler
+from sklearn.feature_selection import mutual_info_classif
 
 warnings.filterwarnings("ignore")
 
@@ -30,22 +31,7 @@ warnings.filterwarnings("ignore")
 
 CONFIG = {
     # ── Features ──
-    "features": [
-        # Spearman top-35 + top-5 unique gradient-importance features
-        "glcm_entropy", "image_entropy", "glcm_energy", "brightness_std",
-        "rms_contrast", "glcm_contrast", "mscn_v_pair_mean",
-        "gabor_nyquist_energy", "foreground_edge_density", "edge_density_coarse",
-        "foreground_pixel_ratio", "edge_fine_coarse_ratio", "fast_keypoints_half",
-        "shadow_pixel_ratio", "glcm_homogeneity", "gradient_magnitude_std",
-        "spatial_frequency", "foreground_blob_count", "mid_gradient_std",
-        "downsample_info_loss", "downsample_ssim", "mscn_mean",
-        "motion_pixel_ratio", "mid_high_freq_energy", "fft_critical_band_ratio",
-        "temporal_diff_mean", "mscn_skewness", "temporal_diff_std",
-        "keypoint_loss_ratio", "saturation_std", "ratio_top_bot_gradient_std",
-        "bot_gradient_std", "dark_channel_mean", "colorfulness", "mscn_h_pair_std",
-        # Gradient-unique additions (top-2 by gradient importance not in Spearman-35)
-        "mscn_h_pair_mean", "top_gradient_std",
-    ],
+    "features": "all_65",  # Use all 65 for MI-based feature selection
 
     # ── Target definition ──
     "target": "miss_rate",        # "fn_nano", "miss_rate", or "frame_f1"
@@ -87,7 +73,8 @@ CONFIG = {
     "rf_class_weight": None,        # None, "balanced", "balanced_subsample"
 
     # ── Gradient feature selection ──
-    "gradient_feature_selection": False,  # already computed, using results now
+    "gradient_feature_selection": False,  # already computed
+    "mi_feature_selection": True,  # mutual information feature selection
 }
 
 # ═══════════════════════════════════════════════════════════════════
@@ -575,6 +562,27 @@ def main():
             print(f"  {rank:3d}. {fname:40s}  {score:.6f}", file=sys.stderr)
         print("=== END GRADIENT IMPORTANCE ===\n", file=sys.stderr)
         # Still continue with normal training
+
+    # ── Mutual information feature selection (if requested) ──
+    if CONFIG.get("mi_feature_selection"):
+        # Use RF-style features (mean/std/slope per feature) for MI computation
+        X_train_rf_mi = build_rf_features(X_train)
+        # Compute MI for each feature group (mean, std, slope)
+        n_raw = n_feat
+        mi_scores = np.zeros(n_raw)
+        # Mean features are columns 0..n_raw-1
+        # Std features are columns n_raw..2*n_raw-1
+        # Slope features are columns 2*n_raw..3*n_raw-1
+        for i in range(n_raw):
+            feat_block = X_train_rf_mi[:, [i, i + n_raw, i + 2 * n_raw]]  # mean, std, slope
+            mi = mutual_info_classif(feat_block, y_train, random_state=42, n_neighbors=5)
+            mi_scores[i] = mi.sum()
+
+        mi_ranked = sorted(zip(feature_cols, mi_scores), key=lambda x: x[1], reverse=True)
+        print("\n=== MUTUAL INFORMATION FEATURE IMPORTANCE ===", file=sys.stderr)
+        for rank, (fname, score) in enumerate(mi_ranked, 1):
+            print(f"  {rank:3d}. {fname:40s}  {score:.6f}", file=sys.stderr)
+        print("=== END MI IMPORTANCE ===\n", file=sys.stderr)
 
     # ── Train ──
     best_metrics = None
