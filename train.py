@@ -31,14 +31,21 @@ warnings.filterwarnings("ignore")
 CONFIG = {
     # ── Features ──
     "features": [
-        # Top-20 by LSTM gradient importance
-        "mscn_h_pair_mean", "temporal_diff_mean", "top_gradient_std",
-        "dct_high_freq_ratio", "temporal_diff_std", "ratio_top_bot_edge_density",
-        "mscn_skewness", "foreground_blob_count", "foreground_blob_pa_ratio",
-        "mid_gradient_std", "saturation_mean", "foreground_pixel_ratio",
-        "small_edge_components", "foreground_blob_area_std", "mid_edge_density",
-        "downsample_info_loss", "ratio_top_bot_gradient_std", "edge_density_coarse",
-        "mean_brightness", "bot_laplacian_var",
+        # Spearman top-35 + top-5 unique gradient-importance features
+        "glcm_entropy", "image_entropy", "glcm_energy", "brightness_std",
+        "rms_contrast", "glcm_contrast", "mscn_v_pair_mean",
+        "gabor_nyquist_energy", "foreground_edge_density", "edge_density_coarse",
+        "foreground_pixel_ratio", "edge_fine_coarse_ratio", "fast_keypoints_half",
+        "shadow_pixel_ratio", "glcm_homogeneity", "gradient_magnitude_std",
+        "spatial_frequency", "foreground_blob_count", "mid_gradient_std",
+        "downsample_info_loss", "downsample_ssim", "mscn_mean",
+        "motion_pixel_ratio", "mid_high_freq_energy", "fft_critical_band_ratio",
+        "temporal_diff_mean", "mscn_skewness", "temporal_diff_std",
+        "keypoint_loss_ratio", "saturation_std", "ratio_top_bot_gradient_std",
+        "bot_gradient_std", "dark_channel_mean", "colorfulness", "mscn_h_pair_std",
+        # Gradient-unique additions (top-5 by gradient importance not in Spearman-35)
+        "mscn_h_pair_mean", "top_gradient_std", "dct_high_freq_ratio",
+        "ratio_top_bot_edge_density", "foreground_blob_pa_ratio",
     ],
 
     # ── Target definition ──
