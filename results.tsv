@@ -46,3 +46,5 @@ exp	commit	acc	trans_acc	f1	status	description
 43	-	0.682	0.518	0.685	discard	w=25
 44	-	0.703	0.569	0.725	discard	w=50 (fewer val samples)
 45	-	0.757	0.536	0.796	keep	percentile=40 threshold
+46	-	0.794	0.529	0.843	keep	percentile=35 threshold
+47	-	0.814	0.636	0.869	keep	percentile=30 threshold, RF wins!
