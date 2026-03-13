@@ -61,3 +61,6 @@ exp	commit	acc	trans_acc	f1	status	description
 58	-	0.826	0.625	0.885	keep	top-30 features, p=25, RF
 59	-	0.822	0.609	0.884	discard	top-25 features, p=25
 60	-	0.834	0.625	0.891	keep	top-35 features, p=25, RF — NEW BEST!
+61	-	0.822	0.609	0.882	discard	top-40 features, p=25
+62	-	0.826	0.625	0.885	discard	top-33 features
+63	-	0.826	0.625	0.885	discard	top-37 features
