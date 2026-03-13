@@ -5,3 +5,4 @@ exp	commit	acc	trans_acc	f1	status	description
 2	-	0.680	0.524	0.675	keep	miss_rate target, no min_threshold, 20 features, w=30 h=30
 3	-	0.684	0.536	0.669	keep	all 65 features, miss_rate, w=30 h=30
 4	-	0.717	0.550	0.742	keep	w=15 h=30, 65 features, miss_rate
+5	-	0.671	0.406	0.661	discard	w=20 h=30, 65 features, miss_rate
