@@ -65,7 +65,7 @@ CONFIG = {
     "model_type": "lstm",          # "lstm", "gru", "rf_only"
     "hidden_size": 128,
     "n_layers": 2,
-    "dropout": 0.4,
+    "dropout": 0.5,
     "use_dirichlet": False,        # True=Dirichlet head, False=plain softmax+CE
     "kl_annealing_epochs": 10,
 
