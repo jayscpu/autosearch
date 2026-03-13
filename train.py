@@ -463,7 +463,7 @@ def compute_gradient_importance(X_train, y_train, X_val, y_val, n_feat, device, 
         model = SequenceModel(input_size=n_feat).to(device)
         optimizer = Adam(model.parameters(), lr=CONFIG["lr"], weight_decay=CONFIG["weight_decay"])
         label_smoothing = CONFIG.get("label_smoothing", 0.0)
-    ce_loss_fn = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+        ce_loss_fn = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
 
         train_loader = DataLoader(
             TensorDataset(torch.from_numpy(X_train), torch.from_numpy(y_train)),
