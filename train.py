@@ -59,7 +59,7 @@ CONFIG = {
     "hidden_size": 64,
     "n_layers": 2,
     "dropout": 0.2,
-    "use_dirichlet": True,         # True=Dirichlet head, False=plain softmax+CE
+    "use_dirichlet": False,        # True=Dirichlet head, False=plain softmax+CE
     "kl_annealing_epochs": 10,
 
     # ── Training ──
