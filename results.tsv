@@ -91,3 +91,4 @@ exp	commit	acc	trans_acc	f1	status	description
 88	-	0.818	0.594	0.880	discard	RF random_state=7
 89	-	0.834	0.625	0.891	discard	top-35 + laplacian_variance (no improvement)
 90	-	0.822	0.609	0.882	discard	swap ratio_top_bot_gradient_std for mid_edge_density
+91	-	0.810	0.594	0.877	discard	all 65 features + gradient importance analysis, p=25
