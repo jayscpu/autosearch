@@ -31,19 +31,14 @@ warnings.filterwarnings("ignore")
 CONFIG = {
     # ── Features ──
     "features": [
-        # Top-35 by LSTM gradient importance (non-linear feature selection)
+        # Top-20 by LSTM gradient importance
         "mscn_h_pair_mean", "temporal_diff_mean", "top_gradient_std",
         "dct_high_freq_ratio", "temporal_diff_std", "ratio_top_bot_edge_density",
         "mscn_skewness", "foreground_blob_count", "foreground_blob_pa_ratio",
         "mid_gradient_std", "saturation_mean", "foreground_pixel_ratio",
         "small_edge_components", "foreground_blob_area_std", "mid_edge_density",
         "downsample_info_loss", "ratio_top_bot_gradient_std", "edge_density_coarse",
-        "mean_brightness", "bot_laplacian_var", "colorfulness", "image_entropy",
-        "keypoint_loss_ratio", "mscn_v_pair_mean", "edge_fine_coarse_ratio",
-        "saturation_std", "foreground_blob_area_mean", "foreground_edge_density",
-        "total_edge_components", "bot_edge_density", "spatial_frequency",
-        "mid_high_freq_energy", "downsample_ssim", "gradient_magnitude_std",
-        "ratio_top_bot_laplacian_var",
+        "mean_brightness", "bot_laplacian_var",
     ],
 
     # ── Target definition ──
