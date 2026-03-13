@@ -18,3 +18,8 @@ exp	commit	acc	trans_acc	f1	status	description
 15	-	0.709	0.480	0.715	discard	top-25 spearman features, trans<0.50
 16	-	0.700	0.420	0.710	discard	top-30 spearman features, trans<0.50
 17	-	0.702	0.410	0.702	discard	top-40 spearman features, trans<0.50
+18	-	0.698	0.490	0.713	discard	GRU, 65 features, w=15 h=30
+19	-	0.688	0.440	0.682	discard	1-layer LSTM
+20	-	0.702	0.510	0.713	discard	3-layer LSTM
+21	-	0.711	0.470	0.727	discard	hidden=128, trans<0.50
+22	-	0.715	0.480	0.732	discard	hidden=32, trans<0.50
