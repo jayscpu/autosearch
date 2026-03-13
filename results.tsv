@@ -97,3 +97,4 @@ exp	commit	acc	trans_acc	f1	status	description
 94	-	0.826	0.609	0.885	discard	hybrid Spearman-35 + top-5 gradient-unique (40 feat)
 95	-	0.830	0.609	0.888	discard	Spearman-35 + top-2 gradient-unique (37 feat)
 96	-	0.810	0.594	0.877	discard	MI feature analysis, all 65 features
+97	-	0.798	0.562	0.866	discard	LSTM best seed=1337, Spearman-35, p=25 (RF=0.834)
