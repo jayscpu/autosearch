@@ -29,3 +29,5 @@ exp	commit	acc	trans_acc	f1	status	description
 26	-	0.704	0.548	0.704	keep	train_stride=10, w=30 h=30, 65 feat, 5 seeds
 27	-	0.696	0.500	0.710	discard	dropout=0.3
 28	-	0.709	0.560	0.719	keep	dropout=0.4
+29	-	0.696	0.536	0.694	discard	dropout=0.5
+30	-	0.713	0.571	0.722	keep	lr=5e-4
