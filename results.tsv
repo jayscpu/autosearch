@@ -64,3 +64,5 @@ exp	commit	acc	trans_acc	f1	status	description
 61	-	0.822	0.609	0.882	discard	top-40 features, p=25
 62	-	0.826	0.625	0.885	discard	top-33 features
 63	-	0.826	0.625	0.885	discard	top-37 features
+64	-	0.822	0.609	0.883	discard	top-35 minus mscn_h_pair_std
+65	-	0.826	0.609	0.885	discard	top-35 + mscn_std
