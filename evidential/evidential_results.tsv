@@ -1,1 +1,2 @@
 commit	mse	mae	unc_sep	cls_acc	cls_trans	n_val	status	description
+bc1375d	0.009120	0.069819	-0.001109	0.582996	0.460317	247	baseline	35feat h=64 2L λ1=0.1 λ2=0.01
