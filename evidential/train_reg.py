@@ -49,7 +49,7 @@ CONFIG = {
 
     # ── Difficulty Thresholds (percentiles of training miss_rate) ──
     "t1_percentile": 10,     # easy/moderate boundary
-    "t2_percentile": 90,     # moderate/hard boundary
+    "t2_percentile": 85,     # moderate/hard boundary
 
     # ── Windowing ──
     "window": 30,
@@ -62,7 +62,7 @@ CONFIG = {
     "train_cutoff": 14400,
 
     # ── Architecture ──
-    "hidden_size": 64,
+    "hidden_size": 128,
     "n_layers": 2,
     "dropout": 0.2,
 
