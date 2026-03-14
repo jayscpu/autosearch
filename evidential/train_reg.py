@@ -44,7 +44,7 @@ CONFIG = {
 
     # ── NIG Loss Hyperparameters ──
     "lambda1": 1.0,          # evidence regularizer weight
-    "lambda2": 0.01,         # uncertainty regularizer weight
+    "lambda2": 0.05,         # uncertainty regularizer weight
 
     # ── Difficulty Thresholds (percentiles of training miss_rate) ──
     "t1_percentile": 33,     # easy/moderate boundary
