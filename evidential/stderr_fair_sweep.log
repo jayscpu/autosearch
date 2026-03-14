@@ -1,0 +1,129 @@
+  Data: train=1435 val=247 feat=35 steps=5
+
+============================================================
+  PLAIN LSTM SWEEP
+============================================================
+  LSTM  1/20: cls_acc=0.769 unc_sep=+0.0004 | fair_lstm lr=0.001 drop=0.4 h=128 t1=10/t2=85 cosine
+  LSTM  2/20: cls_acc=0.769 unc_sep=-0.0002 | fair_lstm lr=0.001 drop=0.3 h=128 t1=10/t2=85 cosine
+  LSTM  3/20: cls_acc=0.773 unc_sep=-0.0001 | fair_lstm lr=0.001 drop=0.2 h=128 t1=10/t2=85 cosine
+  LSTM  4/20: cls_acc=0.765 unc_sep=+0.0005 | fair_lstm lr=0.0005 drop=0.4 h=128 t1=10/t2=85 cosine
+  LSTM  5/20: cls_acc=0.765 unc_sep=+0.0006 | fair_lstm lr=0.002 drop=0.4 h=128 t1=10/t2=85 cosine
+  LSTM  6/20: cls_acc=0.741 unc_sep=+0.0007 | fair_lstm lr=0.001 drop=0.4 h=64 t1=10/t2=85 cosine
+  LSTM  7/20: cls_acc=0.696 unc_sep=+0.0003 | fair_lstm lr=0.001 drop=0.4 h=128 t1=15/t2=85 cosine
+  LSTM  8/20: cls_acc=0.607 unc_sep=+0.0001 | fair_lstm lr=0.001 drop=0.4 h=128 t1=20/t2=85 cosine
+  LSTM  9/20: cls_acc=0.753 unc_sep=+0.0002 | fair_lstm lr=0.001 drop=0.4 h=128 t1=10/t2=80 cosine
+  LSTM 10/20: cls_acc=0.599 unc_sep=-0.0002 | fair_lstm lr=0.001 drop=0.4 h=128 t1=25/t2=80 cosine
+  LSTM 11/20: cls_acc=0.769 unc_sep=+0.0003 | fair_lstm lr=0.001 drop=0.4 h=128 t1=10/t2=85 plateau
+  LSTM 12/20: cls_acc=0.773 unc_sep=+0.0000 | fair_lstm lr=0.001 drop=0.3 h=64 t1=10/t2=85 cosine
+  LSTM 13/20: cls_acc=0.753 unc_sep=+0.0005 | fair_lstm lr=0.002 drop=0.3 h=128 t1=10/t2=85 cosine
+  LSTM 14/20: cls_acc=0.717 unc_sep=+0.0003 | fair_lstm lr=0.001 drop=0.4 h=128 t1=15/t2=80 cosine
+  LSTM 15/20: cls_acc=0.761 unc_sep=+0.0003 | fair_lstm lr=0.0005 drop=0.3 h=128 t1=10/t2=85 plateau
+  LSTM 16/20: cls_acc=0.737 unc_sep=-0.0000 | fair_lstm lr=0.001 drop=0.2 h=64 t1=15/t2=85 cosine
+  LSTM 17/20: cls_acc=0.737 unc_sep=+0.0005 | fair_lstm lr=0.002 drop=0.4 h=128 t1=15/t2=85 cosine
+  LSTM 18/20: cls_acc=0.668 unc_sep=-0.0001 | fair_lstm lr=0.001 drop=0.3 h=128 t1=20/t2=80 cosine
+  LSTM 19/20: cls_acc=0.636 unc_sep=-0.0001 | fair_lstm lr=0.001 drop=0.4 h=128 t1=25/t2=85 cosine
+  LSTM 20/20: cls_acc=0.753 unc_sep=+0.0006 | fair_lstm lr=0.0005 drop=0.4 h=64 t1=10/t2=85 cosine
+
+  >>> LSTM BEST: cls_acc=0.773 | fair_lstm lr=0.001 drop=0.2 h=128 t1=10/t2=85 cosine
+
+============================================================
+  PLAIN GRU SWEEP
+============================================================
+  GRU   1/20: cls_acc=0.765 unc_sep=-0.0000 | fair_gru lr=0.001 drop=0.4 h=128 t1=10/t2=85 cosine
+  GRU   2/20: cls_acc=0.773 unc_sep=+0.0003 | fair_gru lr=0.001 drop=0.3 h=128 t1=10/t2=85 cosine
+  GRU   3/20: cls_acc=0.773 unc_sep=+0.0003 | fair_gru lr=0.001 drop=0.2 h=128 t1=10/t2=85 cosine
+  GRU   4/20: cls_acc=0.777 unc_sep=+0.0004 | fair_gru lr=0.0005 drop=0.4 h=128 t1=10/t2=85 cosine
+  GRU   5/20: cls_acc=0.761 unc_sep=+0.0003 | fair_gru lr=0.002 drop=0.4 h=128 t1=10/t2=85 cosine
+  GRU   6/20: cls_acc=0.781 unc_sep=+0.0001 | fair_gru lr=0.001 drop=0.4 h=64 t1=10/t2=85 cosine
+  GRU   7/20: cls_acc=0.761 unc_sep=+0.0008 | fair_gru lr=0.001 drop=0.4 h=128 t1=15/t2=85 cosine
+  GRU   8/20: cls_acc=0.652 unc_sep=-0.0001 | fair_gru lr=0.001 drop=0.4 h=128 t1=20/t2=85 cosine
+  GRU   9/20: cls_acc=0.769 unc_sep=+0.0001 | fair_gru lr=0.001 drop=0.4 h=128 t1=10/t2=80 cosine
+  GRU  10/20: cls_acc=0.595 unc_sep=-0.0001 | fair_gru lr=0.001 drop=0.4 h=128 t1=25/t2=80 cosine
+  GRU  11/20: cls_acc=0.761 unc_sep=+0.0006 | fair_gru lr=0.001 drop=0.4 h=128 t1=10/t2=85 plateau
+  GRU  12/20: cls_acc=0.781 unc_sep=+0.0002 | fair_gru lr=0.001 drop=0.3 h=64 t1=10/t2=85 cosine
+  GRU  13/20: cls_acc=0.781 unc_sep=+0.0003 | fair_gru lr=0.002 drop=0.3 h=128 t1=10/t2=85 cosine
+  GRU  14/20: cls_acc=0.761 unc_sep=+0.0005 | fair_gru lr=0.001 drop=0.4 h=128 t1=15/t2=80 cosine
+  GRU  15/20: cls_acc=0.777 unc_sep=+0.0000 | fair_gru lr=0.0005 drop=0.3 h=128 t1=10/t2=85 plateau
+  GRU  16/20: cls_acc=0.729 unc_sep=-0.0001 | fair_gru lr=0.001 drop=0.2 h=64 t1=15/t2=85 cosine
+  GRU  17/20: cls_acc=0.704 unc_sep=+0.0005 | fair_gru lr=0.002 drop=0.4 h=128 t1=15/t2=85 cosine
+  GRU  18/20: cls_acc=0.652 unc_sep=-0.0001 | fair_gru lr=0.001 drop=0.3 h=128 t1=20/t2=80 cosine
+  GRU  19/20: cls_acc=0.619 unc_sep=+0.0004 | fair_gru lr=0.001 drop=0.4 h=128 t1=25/t2=85 cosine
+  GRU  20/20: cls_acc=0.794 unc_sep=-0.0005 | fair_gru lr=0.0005 drop=0.4 h=64 t1=10/t2=85 cosine
+
+  >>> GRU BEST: cls_acc=0.794 | fair_gru lr=0.0005 drop=0.4 h=64 t1=10/t2=85 cosine
+
+============================================================
+  RANDOM FOREST SWEEP
+============================================================
+  RF    1/15: cls_acc=0.781 unc_sep=+0.0010 | fair_rf n=300 d=15 leaf=5 t1=10/t2=85
+  RF    2/15: cls_acc=0.777 unc_sep=+0.0010 | fair_rf n=500 d=15 leaf=5 t1=10/t2=85
+  RF    3/15: cls_acc=0.777 unc_sep=+0.0011 | fair_rf n=1000 d=15 leaf=5 t1=10/t2=85
+  RF    4/15: cls_acc=0.781 unc_sep=+0.0012 | fair_rf n=300 d=20 leaf=3 t1=10/t2=85
+  RF    5/15: cls_acc=0.781 unc_sep=+0.0012 | fair_rf n=300 d=30 leaf=2 t1=10/t2=85
+  RF    6/15: cls_acc=0.777 unc_sep=+0.0008 | fair_rf n=300 d=10 leaf=10 t1=10/t2=85
+  RF    7/15: cls_acc=0.781 unc_sep=+0.0012 | fair_rf n=500 d=20 leaf=3 t1=10/t2=85
+  RF    8/15: cls_acc=0.753 unc_sep=+0.0008 | fair_rf n=300 d=15 leaf=5 t1=15/t2=85
+  RF    9/15: cls_acc=0.664 unc_sep=+0.0005 | fair_rf n=300 d=15 leaf=5 t1=20/t2=85
+  RF   10/15: cls_acc=0.761 unc_sep=+0.0008 | fair_rf n=300 d=15 leaf=5 t1=10/t2=80
+  RF   11/15: cls_acc=0.607 unc_sep=+0.0005 | fair_rf n=300 d=15 leaf=5 t1=25/t2=80
+  RF   12/15: cls_acc=0.781 unc_sep=+0.0012 | fair_rf n=500 d=25 leaf=2 t1=10/t2=85
+  RF   13/15: cls_acc=0.781 unc_sep=+0.0013 | fair_rf n=1000 d=20 leaf=3 t1=10/t2=85
+  RF   14/15: cls_acc=0.781 unc_sep=+0.0011 | fair_rf n=300 d=None leaf=3 t1=10/t2=85
+  RF   15/15: cls_acc=0.733 unc_sep=+0.0008 | fair_rf n=500 d=15 leaf=5 t1=15/t2=80
+
+  >>> RF BEST: cls_acc=0.781 | fair_rf n=300 d=15 leaf=5 t1=10/t2=85
+
+============================================================
+  XGBOOST SWEEP
+============================================================
+  XGB   1/15: cls_acc=0.794 unc_sep=-0.0000 | fair_xgb n=300 d=5 lr=0.05 sub=0.8 t1=10/t2=85
+  XGB   2/15: cls_acc=0.773 unc_sep=+0.0000 | fair_xgb n=500 d=4 lr=0.05 sub=0.8 t1=10/t2=85
+  XGB   3/15: cls_acc=0.769 unc_sep=-0.0000 | fair_xgb n=300 d=6 lr=0.05 sub=0.8 t1=10/t2=85
+  XGB   4/15: cls_acc=0.777 unc_sep=+0.0000 | fair_xgb n=300 d=8 lr=0.05 sub=0.8 t1=10/t2=85
+  XGB   5/15: cls_acc=0.794 unc_sep=+0.0000 | fair_xgb n=300 d=5 lr=0.01 sub=0.8 t1=10/t2=85
+  XGB   6/15: cls_acc=0.769 unc_sep=+0.0000 | fair_xgb n=300 d=5 lr=0.1 sub=0.8 t1=10/t2=85
+  XGB   7/15: cls_acc=0.785 unc_sep=+0.0000 | fair_xgb n=500 d=3 lr=0.02 sub=0.9 t1=10/t2=85
+  XGB   8/15: cls_acc=0.789 unc_sep=+0.0000 | fair_xgb n=300 d=5 lr=0.03 sub=0.8 t1=10/t2=85
+  XGB   9/15: cls_acc=0.761 unc_sep=+0.0000 | fair_xgb n=300 d=5 lr=0.05 sub=0.8 t1=15/t2=85
+  XGB  10/15: cls_acc=0.688 unc_sep=+0.0000 | fair_xgb n=300 d=5 lr=0.05 sub=0.8 t1=20/t2=85
+  XGB  11/15: cls_acc=0.765 unc_sep=-0.0000 | fair_xgb n=300 d=5 lr=0.05 sub=0.8 t1=10/t2=80
+  XGB  12/15: cls_acc=0.599 unc_sep=+0.0000 | fair_xgb n=300 d=5 lr=0.05 sub=0.8 t1=25/t2=80
+  XGB  13/15: cls_acc=0.794 unc_sep=-0.0000 | fair_xgb n=500 d=5 lr=0.03 sub=0.9 t1=10/t2=85
+  XGB  14/15: cls_acc=0.785 unc_sep=+0.0000 | fair_xgb n=1000 d=4 lr=0.01 sub=0.8 t1=10/t2=85
+  XGB  15/15: cls_acc=0.709 unc_sep=+0.0000 | fair_xgb n=300 d=5 lr=0.05 sub=0.7 t1=15/t2=80
+
+  >>> XGB BEST: cls_acc=0.794 | fair_xgb n=300 d=5 lr=0.05 sub=0.8 t1=10/t2=85
+
+============================================================
+  LSTM+RF ENSEMBLE (best of each)
+============================================================
+  ENS: cls_acc=0.789 | fair_ens w_lstm=0.3 t1=10/t2=85
+  ENS: cls_acc=0.761 | fair_ens w_lstm=0.3 t1=15/t2=85
+  ENS: cls_acc=0.761 | fair_ens w_lstm=0.3 t1=10/t2=80
+  ENS: cls_acc=0.733 | fair_ens w_lstm=0.3 t1=15/t2=80
+  ENS: cls_acc=0.668 | fair_ens w_lstm=0.3 t1=20/t2=85
+  ENS: cls_acc=0.794 | fair_ens w_lstm=0.5 t1=10/t2=85
+  ENS: cls_acc=0.765 | fair_ens w_lstm=0.5 t1=15/t2=85
+  ENS: cls_acc=0.761 | fair_ens w_lstm=0.5 t1=10/t2=80
+  ENS: cls_acc=0.733 | fair_ens w_lstm=0.5 t1=15/t2=80
+  ENS: cls_acc=0.668 | fair_ens w_lstm=0.5 t1=20/t2=85
+  ENS: cls_acc=0.781 | fair_ens w_lstm=0.7 t1=10/t2=85
+  ENS: cls_acc=0.749 | fair_ens w_lstm=0.7 t1=15/t2=85
+  ENS: cls_acc=0.749 | fair_ens w_lstm=0.7 t1=10/t2=80
+  ENS: cls_acc=0.717 | fair_ens w_lstm=0.7 t1=15/t2=80
+  ENS: cls_acc=0.636 | fair_ens w_lstm=0.7 t1=20/t2=85
+
+  >>> ENS BEST: cls_acc=0.794 | fair_ens w_lstm=0.5 t1=10/t2=85
+
+================================================================================
+  FINAL COMPARISON — EACH MODEL FULLY TUNED (2908s total)
+================================================================================
+  Model                     cls_acc      unc_sep        MSE        MAE   Config
+  ----------------------------------------------------------------------------------------------------
+  EVIDENTIAL NIG              0.858    +0.005750      0.009      0.071   λ1=0.3 h=128 drop=0.4 cosine LN
+  plain_lstm                  0.773    -0.000081   0.009515   0.076145   fair_lstm lr=0.001 drop=0.2 h=128 t1=10/t2=85 cosine
+  plain_gru                   0.794    -0.000507   0.008957   0.071271   fair_gru lr=0.0005 drop=0.4 h=64 t1=10/t2=85 cosine
+  random_forest               0.781    +0.000962   0.009414   0.072519   fair_rf n=300 d=15 leaf=5 t1=10/t2=85
+  xgboost                     0.794    -0.000000   0.009288   0.072079   fair_xgb n=300 d=5 lr=0.05 sub=0.8 t1=10/t2=85
+  lstm_rf_ensemble            0.794    +0.000462   0.008640   0.071266   fair_ens w_lstm=0.5 t1=10/t2=85
+================================================================================

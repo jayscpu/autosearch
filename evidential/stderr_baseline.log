@@ -1,0 +1,21 @@
+  Multi-step: horizon=30, sub_window=6, n_steps=5
+  Train: 1435 windows, y shape=(1435, 5)
+  Val:   247 windows, y shape=(247, 5)
+  Params: 64,596
+  Epoch   0: train_loss=2.0822 val_loss=1.3868 *
+  Epoch  20: train_loss=-0.3598 val_loss=-0.3358
+  Epoch  40: train_loss=-0.4997 val_loss=-0.2617
+  Epoch  60: train_loss=-0.6450 val_loss=-0.1913
+  Early stop at epoch 64
+
+  === RESULTS ===
+  MSE:  0.010657
+  MAE:  0.075171
+  Unc separation: 0.001520 (correct=0.0208, incorrect=0.0224)
+  3-class acc:    0.648
+  3-class trans:  0.505 (103 transitions)
+  Per-class:      {'easy': 0.5238095238095238, 'moderate': 0.7818181818181819, 'hard': 0.225}
+  Class dist:     {'easy': 42, 'moderate': 165, 'hard': 40}
+  Thresholds:     t1=0.3892, t2=0.5882
+  Per-step MSE:   ['0.012685', '0.015678', '0.020227', '0.022304', '0.022189']
+  Time:           37.8s

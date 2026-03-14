@@ -1,0 +1,24 @@
+  Training Plain LSTM...
+    LSTM: MSE=0.008961 MAE=0.070478 cls_acc=0.636 unc_sep=-0.000285
+  Training Plain GRU...
+    GRU:  MSE=0.008930 MAE=0.072137 cls_acc=0.599 unc_sep=-0.000146
+  Training Random Forest...
+    RF:   MSE=0.009387 MAE=0.072403 cls_acc=0.611 unc_sep=0.000493
+  Training GradientBoosting...
+    GB:   MSE=0.009540 MAE=0.072966 cls_acc=0.599 unc_sep=0.000000
+  Training XGBoost...
+    XGB:  MSE=0.009288 MAE=0.072134 cls_acc=0.623 unc_sep=0.000000
+  Computing LSTM+RF Ensemble...
+    ENS:  MSE=0.008850 MAE=0.070236 cls_acc=0.599 unc_sep=0.000046
+
+  Total time: 312.5s
+
+  === NON-EVIDENTIAL COMPARISON ===
+  Model                       MSE        MAE    cls_acc      unc_sep
+  --------------------------------------------------------------
+  plain_lstm             0.008961   0.070478      0.636    -0.000285
+  plain_gru              0.008930   0.072137      0.599    -0.000146
+  random_forest          0.009387   0.072403      0.611     0.000493
+  gradient_boosting      0.009540   0.072966      0.599     0.000000
+  xgboost                0.009288   0.072134      0.623     0.000000
+  lstm_rf_ensemble       0.008850   0.070236      0.599     0.000046
