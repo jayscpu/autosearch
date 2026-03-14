@@ -53,12 +53,12 @@ CONFIG = {
     "train_stride": 10,
     "eval_stride": 30,
     "train_cutoff": 14400,
-    "t1_percentile": 25,
-    "t2_percentile": 80,
-    # Neural model params
-    "hidden_size": 64,
+    "t1_percentile": 10,
+    "t2_percentile": 85,
+    # Neural model params — matched to best NIG config
+    "hidden_size": 128,
     "n_layers": 2,
-    "dropout": 0.2,
+    "dropout": 0.4,
     "lr": 1e-3,
     "weight_decay": 1e-5,
     "batch_size": 64,
@@ -132,10 +132,10 @@ class PlainLSTM(nn.Module):
         self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden,
                             num_layers=n_layers, batch_first=True, dropout=dropout)
         self.head = nn.Sequential(
-            nn.Linear(hidden, 32),
+            nn.Linear(hidden, 64),
             nn.ReLU(),
             nn.Dropout(CONFIG["dropout"]),
-            nn.Linear(32, 1),
+            nn.Linear(64, 1),
         )
 
     def forward(self, x):
@@ -152,10 +152,10 @@ class PlainGRU(nn.Module):
         self.gru = nn.GRU(input_size=input_size, hidden_size=hidden,
                            num_layers=n_layers, batch_first=True, dropout=dropout)
         self.head = nn.Sequential(
-            nn.Linear(hidden, 32),
+            nn.Linear(hidden, 64),
             nn.ReLU(),
             nn.Dropout(CONFIG["dropout"]),
-            nn.Linear(32, 1),
+            nn.Linear(64, 1),
         )
 
     def forward(self, x):
@@ -172,8 +172,8 @@ def train_neural(model, X_train, y_train, X_val, y_val, device):
     val_y = torch.from_numpy(y_val).to(device)
 
     optimizer = Adam(model.parameters(), lr=CONFIG["lr"], weight_decay=CONFIG["weight_decay"])
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="min", factor=0.5, patience=15, min_lr=1e-6)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=CONFIG["max_epochs"], eta_min=1e-6)
     criterion = nn.MSELoss()
 
     best_val_loss = float("inf")
@@ -196,7 +196,7 @@ def train_neural(model, X_train, y_train, X_val, y_val, device):
             val_pred = model(val_x)
             val_loss = criterion(val_pred, val_y).item()
 
-        scheduler.step(val_loss)
+        scheduler.step()
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
