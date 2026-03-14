@@ -101,3 +101,88 @@ cad32ed	0.009652	0.072457	0.005750	0.858300	0.616667	247	keep	LayerNorm in head 
 a3ba0ee	0.009310	0.072230	0.001199	0.785425	-	247	best_of	RF best: n=200 d=25 leaf=2
 a3ba0ee	0.009411	0.072881	0.000000	0.793522	-	247	best_of	GB best: n=300 d=4 lr=0.05
 a3ba0ee	0.009239	0.072310	0.000000	0.789474	-	247	best_of	XGB best: n=300 d=5 lr=0.03
+fair	0.009500	0.073355	0.000385	0.769231	-	247	fair_lstm	fair_lstm lr=0.001 drop=0.4 h=128 t1=10/t2=85 cosine
+fair	0.009009	0.072026	-0.000183	0.769231	-	247	fair_lstm	fair_lstm lr=0.001 drop=0.3 h=128 t1=10/t2=85 cosine
+fair	0.009515	0.076145	-0.000081	0.773279	-	247	fair_lstm	fair_lstm lr=0.001 drop=0.2 h=128 t1=10/t2=85 cosine
+fair	0.009402	0.074634	0.000459	0.765182	-	247	fair_lstm	fair_lstm lr=0.0005 drop=0.4 h=128 t1=10/t2=85 cosine
+fair	0.009585	0.074318	0.000634	0.765182	-	247	fair_lstm	fair_lstm lr=0.002 drop=0.4 h=128 t1=10/t2=85 cosine
+fair	0.009650	0.074660	0.000692	0.740891	-	247	fair_lstm	fair_lstm lr=0.001 drop=0.4 h=64 t1=10/t2=85 cosine
+fair	0.009658	0.076594	0.000265	0.696356	-	247	fair_lstm	fair_lstm lr=0.001 drop=0.4 h=128 t1=15/t2=85 cosine
+fair	0.009961	0.076240	0.000071	0.607287	-	247	fair_lstm	fair_lstm lr=0.001 drop=0.4 h=128 t1=20/t2=85 cosine
+fair	0.009596	0.074799	0.000223	0.753036	-	247	fair_lstm	fair_lstm lr=0.001 drop=0.4 h=128 t1=10/t2=80 cosine
+fair	0.009845	0.075943	-0.000197	0.599190	-	247	fair_lstm	fair_lstm lr=0.001 drop=0.4 h=128 t1=25/t2=80 cosine
+fair	0.009454	0.073384	0.000349	0.769231	-	247	fair_lstm	fair_lstm lr=0.001 drop=0.4 h=128 t1=10/t2=85 plateau
+fair	0.009434	0.075838	0.000047	0.773279	-	247	fair_lstm	fair_lstm lr=0.001 drop=0.3 h=64 t1=10/t2=85 cosine
+fair	0.009557	0.074623	0.000456	0.753036	-	247	fair_lstm	fair_lstm lr=0.002 drop=0.3 h=128 t1=10/t2=85 cosine
+fair	0.009262	0.073309	0.000275	0.716599	-	247	fair_lstm	fair_lstm lr=0.001 drop=0.4 h=128 t1=15/t2=80 cosine
+fair	0.009409	0.074962	0.000276	0.761134	-	247	fair_lstm	fair_lstm lr=0.0005 drop=0.3 h=128 t1=10/t2=85 plateau
+fair	0.009749	0.074461	-0.000005	0.736842	-	247	fair_lstm	fair_lstm lr=0.001 drop=0.2 h=64 t1=15/t2=85 cosine
+fair	0.009459	0.073137	0.000509	0.736842	-	247	fair_lstm	fair_lstm lr=0.002 drop=0.4 h=128 t1=15/t2=85 cosine
+fair	0.009424	0.075502	-0.000083	0.668016	-	247	fair_lstm	fair_lstm lr=0.001 drop=0.3 h=128 t1=20/t2=80 cosine
+fair	0.009399	0.074553	-0.000126	0.635628	-	247	fair_lstm	fair_lstm lr=0.001 drop=0.4 h=128 t1=25/t2=85 cosine
+fair	0.009956	0.075812	0.000642	0.753036	-	247	fair_lstm	fair_lstm lr=0.0005 drop=0.4 h=64 t1=10/t2=85 cosine
+fair	0.008613	0.070257	-0.000018	0.765182	-	247	fair_gru	fair_gru lr=0.001 drop=0.4 h=128 t1=10/t2=85 cosine
+fair	0.008680	0.069982	0.000289	0.773279	-	247	fair_gru	fair_gru lr=0.001 drop=0.3 h=128 t1=10/t2=85 cosine
+fair	0.008496	0.070037	0.000271	0.773279	-	247	fair_gru	fair_gru lr=0.001 drop=0.2 h=128 t1=10/t2=85 cosine
+fair	0.008625	0.069524	0.000368	0.777328	-	247	fair_gru	fair_gru lr=0.0005 drop=0.4 h=128 t1=10/t2=85 cosine
+fair	0.009096	0.073601	0.000345	0.761134	-	247	fair_gru	fair_gru lr=0.002 drop=0.4 h=128 t1=10/t2=85 cosine
+fair	0.008478	0.069475	0.000140	0.781377	-	247	fair_gru	fair_gru lr=0.001 drop=0.4 h=64 t1=10/t2=85 cosine
+fair	0.008868	0.069288	0.000804	0.761134	-	247	fair_gru	fair_gru lr=0.001 drop=0.4 h=128 t1=15/t2=85 cosine
+fair	0.009071	0.072496	-0.000113	0.651822	-	247	fair_gru	fair_gru lr=0.001 drop=0.4 h=128 t1=20/t2=85 cosine
+fair	0.008822	0.070736	0.000122	0.769231	-	247	fair_gru	fair_gru lr=0.001 drop=0.4 h=128 t1=10/t2=80 cosine
+fair	0.008872	0.071362	-0.000080	0.595142	-	247	fair_gru	fair_gru lr=0.001 drop=0.4 h=128 t1=25/t2=80 cosine
+fair	0.008788	0.070928	0.000644	0.761134	-	247	fair_gru	fair_gru lr=0.001 drop=0.4 h=128 t1=10/t2=85 plateau
+fair	0.008674	0.071770	0.000151	0.781377	-	247	fair_gru	fair_gru lr=0.001 drop=0.3 h=64 t1=10/t2=85 cosine
+fair	0.009050	0.074524	0.000349	0.781377	-	247	fair_gru	fair_gru lr=0.002 drop=0.3 h=128 t1=10/t2=85 cosine
+fair	0.008300	0.070430	0.000492	0.761134	-	247	fair_gru	fair_gru lr=0.001 drop=0.4 h=128 t1=15/t2=80 cosine
+fair	0.008700	0.070922	0.000007	0.777328	-	247	fair_gru	fair_gru lr=0.0005 drop=0.3 h=128 t1=10/t2=85 plateau
+fair	0.008373	0.071372	-0.000075	0.728745	-	247	fair_gru	fair_gru lr=0.001 drop=0.2 h=64 t1=15/t2=85 cosine
+fair	0.009116	0.073104	0.000475	0.704453	-	247	fair_gru	fair_gru lr=0.002 drop=0.4 h=128 t1=15/t2=85 cosine
+fair	0.008536	0.068735	-0.000114	0.651822	-	247	fair_gru	fair_gru lr=0.001 drop=0.3 h=128 t1=20/t2=80 cosine
+fair	0.008632	0.070360	0.000404	0.619433	-	247	fair_gru	fair_gru lr=0.001 drop=0.4 h=128 t1=25/t2=85 cosine
+fair	0.008957	0.071271	-0.000507	0.793522	-	247	fair_gru	fair_gru lr=0.0005 drop=0.4 h=64 t1=10/t2=85 cosine
+fair	0.009414	0.072519	0.000962	0.781377	-	247	fair_rf	fair_rf n=300 d=15 leaf=5 t1=10/t2=85
+fair	0.009364	0.072163	0.001047	0.777328	-	247	fair_rf	fair_rf n=500 d=15 leaf=5 t1=10/t2=85
+fair	0.009357	0.072236	0.001100	0.777328	-	247	fair_rf	fair_rf n=1000 d=15 leaf=5 t1=10/t2=85
+fair	0.009412	0.072787	0.001212	0.781377	-	247	fair_rf	fair_rf n=300 d=20 leaf=3 t1=10/t2=85
+fair	0.009321	0.072380	0.001214	0.781377	-	247	fair_rf	fair_rf n=300 d=30 leaf=2 t1=10/t2=85
+fair	0.009408	0.072064	0.000825	0.777328	-	247	fair_rf	fair_rf n=300 d=10 leaf=10 t1=10/t2=85
+fair	0.009353	0.072363	0.001204	0.781377	-	247	fair_rf	fair_rf n=500 d=20 leaf=3 t1=10/t2=85
+fair	0.009414	0.072519	0.000832	0.753036	-	247	fair_rf	fair_rf n=300 d=15 leaf=5 t1=15/t2=85
+fair	0.009414	0.072519	0.000509	0.663968	-	247	fair_rf	fair_rf n=300 d=15 leaf=5 t1=20/t2=85
+fair	0.009414	0.072519	0.000847	0.761134	-	247	fair_rf	fair_rf n=300 d=15 leaf=5 t1=10/t2=80
+fair	0.009414	0.072519	0.000456	0.607287	-	247	fair_rf	fair_rf n=300 d=15 leaf=5 t1=25/t2=80
+fair	0.009263	0.071859	0.001211	0.781377	-	247	fair_rf	fair_rf n=500 d=25 leaf=2 t1=10/t2=85
+fair	0.009322	0.072255	0.001266	0.781377	-	247	fair_rf	fair_rf n=1000 d=20 leaf=3 t1=10/t2=85
+fair	0.009410	0.072681	0.001138	0.781377	-	247	fair_rf	fair_rf n=300 d=None leaf=3 t1=10/t2=85
+fair	0.009364	0.072163	0.000821	0.732794	-	247	fair_rf	fair_rf n=500 d=15 leaf=5 t1=15/t2=80
+fair	0.009288	0.072079	-0.000000	0.793522	-	247	fair_xgb	fair_xgb n=300 d=5 lr=0.05 sub=0.8 t1=10/t2=85
+fair	0.009610	0.073272	0.000000	0.773279	-	247	fair_xgb	fair_xgb n=500 d=4 lr=0.05 sub=0.8 t1=10/t2=85
+fair	0.009079	0.071851	-0.000000	0.769231	-	247	fair_xgb	fair_xgb n=300 d=6 lr=0.05 sub=0.8 t1=10/t2=85
+fair	0.009624	0.074338	0.000000	0.777328	-	247	fair_xgb	fair_xgb n=300 d=8 lr=0.05 sub=0.8 t1=10/t2=85
+fair	0.009147	0.071557	0.000000	0.793522	-	247	fair_xgb	fair_xgb n=300 d=5 lr=0.01 sub=0.8 t1=10/t2=85
+fair	0.009839	0.075385	0.000000	0.769231	-	247	fair_xgb	fair_xgb n=300 d=5 lr=0.1 sub=0.8 t1=10/t2=85
+fair	0.009096	0.072065	0.000000	0.785425	-	247	fair_xgb	fair_xgb n=500 d=3 lr=0.02 sub=0.9 t1=10/t2=85
+fair	0.009239	0.072310	0.000000	0.789474	-	247	fair_xgb	fair_xgb n=300 d=5 lr=0.03 sub=0.8 t1=10/t2=85
+fair	0.009288	0.072079	0.000000	0.761134	-	247	fair_xgb	fair_xgb n=300 d=5 lr=0.05 sub=0.8 t1=15/t2=85
+fair	0.009288	0.072079	0.000000	0.688259	-	247	fair_xgb	fair_xgb n=300 d=5 lr=0.05 sub=0.8 t1=20/t2=85
+fair	0.009288	0.072079	-0.000000	0.765182	-	247	fair_xgb	fair_xgb n=300 d=5 lr=0.05 sub=0.8 t1=10/t2=80
+fair	0.009288	0.072079	0.000000	0.599190	-	247	fair_xgb	fair_xgb n=300 d=5 lr=0.05 sub=0.8 t1=25/t2=80
+fair	0.009232	0.071557	-0.000000	0.793522	-	247	fair_xgb	fair_xgb n=500 d=5 lr=0.03 sub=0.9 t1=10/t2=85
+fair	0.009083	0.071270	0.000000	0.785425	-	247	fair_xgb	fair_xgb n=1000 d=4 lr=0.01 sub=0.8 t1=10/t2=85
+fair	0.009851	0.074886	0.000000	0.708502	-	247	fair_xgb	fair_xgb n=300 d=5 lr=0.05 sub=0.7 t1=15/t2=80
+fair	0.008773	0.070747	0.000584	0.789474	-	247	fair_ens	fair_ens w_lstm=0.3 t1=10/t2=85
+fair	0.008773	0.070747	0.000513	0.761134	-	247	fair_ens	fair_ens w_lstm=0.3 t1=15/t2=85
+fair	0.008773	0.070747	0.000570	0.761134	-	247	fair_ens	fair_ens w_lstm=0.3 t1=10/t2=80
+fair	0.008773	0.070747	0.000510	0.732794	-	247	fair_ens	fair_ens w_lstm=0.3 t1=15/t2=80
+fair	0.008773	0.070747	0.000220	0.668016	-	247	fair_ens	fair_ens w_lstm=0.3 t1=20/t2=85
+fair	0.008640	0.071266	0.000462	0.793522	-	247	fair_ens	fair_ens w_lstm=0.5 t1=10/t2=85
+fair	0.008640	0.071266	0.000423	0.765182	-	247	fair_ens	fair_ens w_lstm=0.5 t1=15/t2=85
+fair	0.008640	0.071266	0.000400	0.761134	-	247	fair_ens	fair_ens w_lstm=0.5 t1=10/t2=80
+fair	0.008640	0.071266	0.000373	0.732794	-	247	fair_ens	fair_ens w_lstm=0.5 t1=15/t2=80
+fair	0.008640	0.071266	0.000140	0.668016	-	247	fair_ens	fair_ens w_lstm=0.5 t1=20/t2=85
+fair	0.008742	0.072577	0.000346	0.781377	-	247	fair_ens	fair_ens w_lstm=0.7 t1=10/t2=85
+fair	0.008742	0.072577	0.000308	0.748988	-	247	fair_ens	fair_ens w_lstm=0.7 t1=15/t2=85
+fair	0.008742	0.072577	0.000169	0.748988	-	247	fair_ens	fair_ens w_lstm=0.7 t1=10/t2=80
+fair	0.008742	0.072577	0.000151	0.716599	-	247	fair_ens	fair_ens w_lstm=0.7 t1=15/t2=80
+fair	0.008742	0.072577	0.000083	0.635628	-	247	fair_ens	fair_ens w_lstm=0.7 t1=20/t2=85
