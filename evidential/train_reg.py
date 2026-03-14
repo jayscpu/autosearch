@@ -64,7 +64,7 @@ CONFIG = {
     # ── Architecture ──
     "hidden_size": 128,
     "n_layers": 2,
-    "dropout": 0.2,
+    "dropout": 0.3,
 
     # ── Training ──
     "lr": 1e-3,
