@@ -92,3 +92,9 @@ de23638	0.009482	0.073018	0.004161	0.846154	0.583333	247	discard	top-40 features
 b17e45c	0.009932	0.075017	0.004256	0.847870	0.500000	493	discard	eval_stride=15 (more val samples)
 cad32ed	0.009652	0.072457	0.005750	0.858300	0.616667	247	keep	LayerNorm in head — same cls_acc, much better unc_sep!
 6fa596e	0.009863	0.074277	0.002612	0.854251	0.583333	247	discard	LayerNorm + λ2=0.1
+8ea955a	0.009920	0.075411	0.000743	0.761134	-	247	compare_fair	plain_lstm (matched config)
+8ea955a	0.008430	0.070208	-0.000118	0.765182	-	247	compare_fair	plain_gru (matched config)
+8ea955a	0.009387	0.072403	0.000900	0.781377	-	247	compare_fair	random_forest (matched thresholds)
+8ea955a	0.009540	0.072966	0.000000	0.793522	-	247	compare_fair	gradient_boosting (matched thresholds)
+8ea955a	0.009288	0.072134	0.000000	0.793522	-	247	compare_fair	xgboost (matched thresholds)
+8ea955a	0.009205	0.071599	0.000842	0.777328	-	247	compare_fair	lstm_rf_ensemble (matched config)
