@@ -27,7 +27,6 @@ Note: Outputs 5 sequential predictions with per-step uncertainty (autoregressive
  
 FAIR COMPARISON (85 dedicated experiments)
 ------------------------------------------
- 
 All non-evidential models were tuned with equal effort (15-20 experiments each):
  
   Evidential NIG ........... acc=0.858   unc_sep=+0.006   (WINNER)
@@ -37,7 +36,6 @@ All non-evidential models were tuned with equal effort (15-20 experiments each):
   RF (tuned) ............... acc=0.785   unc_sep=+0.001
   LSTM+RF Ensemble ......... acc=0.794   unc_sep=+0.001
   Plain LSTM (tuned) ....... acc=0.773   unc_sep=+0.001
- 
 Evidential NIG wins on both accuracy and uncertainty calibration.
  
  
@@ -47,9 +45,7 @@ KEY FINDINGS
 2. Spearman feature selection (35 of 65 features) outperforms using all features
 3. miss_rate (fn_nano/x_count) outperforms raw fn_nano as prediction target
 4. Evidential NIG regression outperforms all classification and non-evidential approaches
-5. Multi-step autoregressive prediction enables MPC-compatible output while improving uncertainty calibration
 6. Evidential loss provides implicit regularization, yielding +8.5% accuracy over plain LSTM with identical architecture (????)
-7. Uncertainty calibration is small but uniquely positive — NIG is the only approach achieving unc_sep > 0
  
  
 REPO STRUCTURE
