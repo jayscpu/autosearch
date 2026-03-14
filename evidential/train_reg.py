@@ -49,7 +49,7 @@ CONFIG = {
 
     # ── Difficulty Thresholds (percentiles of training miss_rate) ──
     "t1_percentile": 10,     # easy/moderate boundary
-    "t2_percentile": 80,     # moderate/hard boundary
+    "t2_percentile": 85,     # moderate/hard boundary
 
     # ── Windowing ──
     "window": 30,
