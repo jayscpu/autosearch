@@ -163,6 +163,7 @@ class EvidentialLSTM(nn.Module):
 
         self.head = nn.Sequential(
             nn.Linear(hidden, 64),
+            nn.LayerNorm(64),
             nn.ReLU(),
             nn.Dropout(CONFIG["dropout"]),
             nn.Linear(64, n_steps * 4),  # 4 NIG params per step
