@@ -39,3 +39,9 @@ bb3374a	0.010657	0.075171	0.001520	0.647773	0.504854	247	keep	multi-step sub_win
 2a97e81	0.009671	0.074404	0.002787	0.599190	0.368932	247	discard	sub_window=5 (6 steps) — best unc_sep but low cls_acc
 000505c	0.009189	0.072183	0.001788	0.599190	0.409091	247	discard	sub_window=10 (3 steps)
 9cbfff3	0.010623	0.075206	0.001813	0.615385	0.504202	247	discard	sub_window=15 (2 steps)
+93f7a87	0.008961	0.070478	-0.000285	0.635628	-	247	compare	plain_lstm MSE+MC-dropout
+93f7a87	0.008930	0.072137	-0.000146	0.599190	-	247	compare	plain_gru MSE+MC-dropout
+93f7a87	0.009387	0.072403	0.000493	0.611336	-	247	compare	random_forest tree-variance
+93f7a87	0.009540	0.072966	0.000000	0.599190	-	247	compare	gradient_boosting staged-var
+93f7a87	0.009288	0.072134	0.000000	0.623482	-	247	compare	xgboost staged-var
+93f7a87	0.008850	0.070236	0.000046	0.599190	-	247	compare	lstm_rf_ensemble
