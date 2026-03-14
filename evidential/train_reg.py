@@ -273,8 +273,8 @@ def train_model(X_train, y_train, X_val, y_val, n_feat, n_steps, device):
 
     optimizer = Adam(model.parameters(), lr=CONFIG["lr"],
                      weight_decay=CONFIG["weight_decay"])
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="min", factor=0.5, patience=15, min_lr=1e-6)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=CONFIG["max_epochs"], eta_min=1e-6)
 
     best_val_loss = float("inf")
     best_state = None
@@ -306,7 +306,7 @@ def train_model(X_train, y_train, X_val, y_val, n_feat, n_steps, device):
             val_loss = nig_loss(gamma, nu, alpha, beta, val_y)
 
         val_loss_val = val_loss.item()
-        scheduler.step(val_loss_val)
+        scheduler.step()
 
         if val_loss_val < best_val_loss and not np.isnan(val_loss_val):
             best_val_loss = val_loss_val
