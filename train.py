@@ -244,10 +244,7 @@ class SequenceModel(nn.Module):
             )
 
     def forward(self, x):
-        if CONFIG["model_type"] == "gru":
-            rnn_out, _ = self.rnn(x)
-        else:
-            rnn_out, _ = self.rnn(x)
+        rnn_out, _ = self.rnn(x)
 
         if self.use_attention:
             # Temporal attention: weight each time step
@@ -604,6 +601,8 @@ def main():
 
     # ── Train ──
     best_metrics = None
+    lstm_pred = None
+    ensemble_metrics = None
 
     if CONFIG["model_type"] != "rf_only":
         seeds = CONFIG.get("seeds", [42])
@@ -700,15 +699,6 @@ def main():
     if tree_ensemble_metrics["acc"] > best_metrics["acc"]:
         best_metrics = tree_ensemble_metrics
         best_name = "TreeEnsemble"
-
-    # ── LSTM+RF ensemble ──
-    if CONFIG["model_type"] != "rf_only" and lstm_pred is not None:
-        combo_pred = ((lstm_pred + rf_pred) >= 1).astype(np.int64)
-        combo_metrics = evaluate(y_val, combo_pred)
-        print(f"  LSTM+RF:       acc={combo_metrics['acc']:.3f}  f1={combo_metrics['f1']:.3f}  trans={combo_metrics['trans_acc']:.3f}", file=sys.stderr)
-        if combo_metrics["acc"] > best_metrics["acc"] and combo_metrics["trans_acc"] > 0.50:
-            best_metrics = combo_metrics
-            best_name = "LSTM+RF"
 
     # ── Pick best ──
     m = best_metrics
