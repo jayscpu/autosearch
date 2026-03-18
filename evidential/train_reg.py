@@ -23,6 +23,7 @@ from scipy import stats as scipy_stats
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from features import TOP_35_FEATURES
+from utils import load_data
 
 warnings.filterwarnings("ignore")
 
@@ -74,22 +75,7 @@ FEATURES_CSV = SCRIPT_DIR / "yolox_features.csv"
 DETS_CSV = SCRIPT_DIR / "yolox_detections.csv"
 
 
-# ═══════════════════════════════════════════════════════════════════
-# DATA LOADING
-# ═══════════════════════════════════════════════════════════════════
-
-def load_data():
-    df = pd.read_csv(FEATURES_CSV)
-    dets = pd.read_csv(DETS_CSV)
-    df = df.merge(dets[["frame_id", "nano_tp", "nano_fp", "x_count"]],
-                  on="frame_id", how="left", suffixes=("", "_det"))
-    for col in ["nano_tp", "nano_fp", "x_count"]:
-        det_col = f"{col}_det"
-        if det_col in df.columns:
-            df[col] = df[det_col].fillna(df[col])
-            df.drop(columns=[det_col], inplace=True)
-    df["miss_rate"] = df["fn_nano"] / df["x_count"].clip(lower=1)
-    return df
+# load_data() imported from utils.py
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -439,7 +425,7 @@ def main():
     t0 = time.time()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    df = load_data()
+    df = load_data(FEATURES_CSV, DETS_CSV)
     feature_cols = CONFIG["features"]
 
     missing = [f for f in feature_cols if f not in df.columns]

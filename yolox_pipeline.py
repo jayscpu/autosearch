@@ -45,6 +45,9 @@ from sklearn.metrics import (accuracy_score, f1_score, precision_score,
 from sklearn.preprocessing import StandardScaler
 from scipy.stats import entropy as scipy_entropy
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from utils import transition_accuracy
+
 warnings.filterwarnings("ignore")
 
 # ── Paths ──────────────────────────────────────────────────────────
@@ -850,17 +853,7 @@ def eval_clf(y_true, y_pred, y_prob=None, label=""):
     return {"acc": acc, "f1": f1, "prec": prec, "rec": rec, "auc": auc, "cm": cm}
 
 
-def transition_accuracy(y_true, y_pred):
-    """Accuracy on frames where the true label changes from the previous."""
-    trans_correct, trans_total = 0, 0
-    for j in range(1, len(y_true)):
-        if y_true[j] != y_true[j - 1]:
-            trans_total += 1
-            if y_pred[j] == y_true[j]:
-                trans_correct += 1
-    if trans_total == 0:
-        return 0.0, 0
-    return trans_correct / trans_total, trans_total
+# transition_accuracy() imported from utils.py
 
 
 # ═══════════════════════════════════════════════════════════════════
