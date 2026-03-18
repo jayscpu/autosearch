@@ -24,7 +24,6 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from features import TOP_35_FEATURES
-from utils import load_data
 
 warnings.filterwarnings("ignore")
 
@@ -65,7 +64,18 @@ FEATURES_CSV = SCRIPT_DIR / "yolox_features.csv"
 DETS_CSV = SCRIPT_DIR / "yolox_detections.csv"
 
 
-# load_data() imported from utils.py
+def load_data():
+    df = pd.read_csv(FEATURES_CSV)
+    dets = pd.read_csv(DETS_CSV)
+    df = df.merge(dets[["frame_id", "nano_tp", "nano_fp", "x_count"]],
+                  on="frame_id", how="left", suffixes=("", "_det"))
+    for col in ["nano_tp", "nano_fp", "x_count"]:
+        det_col = f"{col}_det"
+        if det_col in df.columns:
+            df[col] = df[det_col].fillna(df[col])
+            df.drop(columns=[det_col], inplace=True)
+    df["miss_rate"] = df["fn_nano"] / df["x_count"].clip(lower=1)
+    return df
 
 
 def build_windows(df, feature_cols, stride, scaler):
@@ -259,7 +269,7 @@ def main():
     t0 = time.time()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    df = load_data(FEATURES_CSV, DETS_CSV)
+    df = load_data()
     feature_cols = CONFIG["features"]
 
     train_df = df[df["frame_id"] <= CONFIG["train_cutoff"]].copy()

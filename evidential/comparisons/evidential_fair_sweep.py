@@ -23,7 +23,6 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from features import TOP_35_FEATURES
-from utils import load_data
 
 warnings.filterwarnings("ignore")
 
@@ -46,7 +45,18 @@ TRAIN_STRIDE, EVAL_STRIDE = 10, 30
 TRAIN_CUTOFF = 14400
 
 
-# load_data() imported from utils.py
+def load_data():
+    df = pd.read_csv(FEATURES_CSV)
+    dets = pd.read_csv(DETS_CSV)
+    df = df.merge(dets[["frame_id", "nano_tp", "nano_fp", "x_count"]],
+                  on="frame_id", how="left", suffixes=("", "_det"))
+    for col in ["nano_tp", "nano_fp", "x_count"]:
+        det_col = f"{col}_det"
+        if det_col in df.columns:
+            df[col] = df[det_col].fillna(df[col])
+            df.drop(columns=[det_col], inplace=True)
+    df["miss_rate"] = df["fn_nano"] / df["x_count"].clip(lower=1)
+    return df
 
 
 def build_windows(df, stride, scaler):
@@ -245,7 +255,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     commit = "fair"
 
-    df = load_data(FEATURES_CSV, DETS_CSV)
+    df = load_data()
     train_df = df[df["frame_id"] <= TRAIN_CUTOFF].copy()
     val_df = df[df["frame_id"] > TRAIN_CUTOFF].copy()
 

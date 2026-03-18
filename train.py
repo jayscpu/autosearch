@@ -25,7 +25,6 @@ from sklearn.feature_selection import mutual_info_classif
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from features import TOP_35_FEATURES
-from utils import load_data, transition_accuracy
 
 warnings.filterwarnings("ignore")
 
@@ -93,7 +92,35 @@ FEATURES_CSV = SCRIPT_DIR / "yolox_features.csv"
 DETS_CSV = SCRIPT_DIR / "yolox_detections.csv"
 
 
-# load_data() and transition_accuracy() imported from utils.py
+# ═══════════════════════════════════════════════════════════════════
+# DATA LOADING & TARGET COMPUTATION
+# ═══════════════════════════════════════════════════════════════════
+
+def load_data():
+    """Load features CSV and optionally merge detection data for alternate targets."""
+    df = pd.read_csv(FEATURES_CSV)
+
+    if CONFIG["target"] in ("miss_rate", "frame_f1"):
+        dets = pd.read_csv(DETS_CSV)
+        df = df.merge(dets[["frame_id", "nano_tp", "nano_fp", "x_count"]], on="frame_id", how="left",
+                       suffixes=("", "_det"))
+        # Use _det columns if merge created duplicates, otherwise use originals
+        for col in ["nano_tp", "nano_fp", "x_count"]:
+            det_col = f"{col}_det"
+            if det_col in df.columns:
+                df[col] = df[det_col].fillna(df[col])
+                df.drop(columns=[det_col], inplace=True)
+
+        if CONFIG["target"] == "miss_rate":
+            df["miss_rate"] = df["fn_nano"] / df["x_count"].clip(lower=1)
+        elif CONFIG["target"] == "frame_f1":
+            p = df["nano_tp"] / (df["nano_tp"] + df["nano_fp"]).clip(lower=1)
+            r = df["nano_tp"] / (df["nano_tp"] + df["fn_nano"]).clip(lower=1)
+            df["frame_f1"] = (2 * p * r) / (p + r).clip(lower=1e-8)
+            # Invert: low F1 = hard, so target = 1 - frame_f1 for thresholding
+            df["frame_f1_inv"] = 1.0 - df["frame_f1"]
+
+    return df
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -361,6 +388,19 @@ def train_model(X_train, y_train, X_val, y_val, n_feat, device):
 # EVALUATION
 # ═══════════════════════════════════════════════════════════════════
 
+def transition_accuracy(y_true, y_pred):
+    """Accuracy on frames where the true label changes."""
+    trans_correct, trans_total = 0, 0
+    for j in range(1, len(y_true)):
+        if y_true[j] != y_true[j - 1]:
+            trans_total += 1
+            if y_pred[j] == y_true[j]:
+                trans_correct += 1
+    if trans_total == 0:
+        return 0.0, 0
+    return trans_correct / trans_total, trans_total
+
+
 def evaluate(y_true, y_pred):
     """Compute all metrics."""
     acc = accuracy_score(y_true, y_pred)
@@ -465,7 +505,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # ── Load data ──
-    df = load_data(FEATURES_CSV, DETS_CSV, target=CONFIG["target"])
+    df = load_data()
 
     # Resolve "all_65" to actual feature columns
     ALL_65_FEATURES = [
