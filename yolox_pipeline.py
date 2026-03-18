@@ -879,9 +879,9 @@ def run_single_target(features_df, target_col, target_label, device):
     val_df = features_df[features_df["frame_id"] > TRAIN_CUTOFF].copy()
     print(f"  Train frames: {len(train_df):,} | Val frames: {len(val_df):,}")
 
-    # ── Threshold ──
+    # ── Threshold (train only — avoid data leakage) ──
     all_targets = []
-    for _, sdf in features_df.groupby("sequence"):
+    for _, sdf in train_df.groupby("sequence"):
         sdf = sdf.sort_values("frame_id").reset_index(drop=True)
         for t in range(0, len(sdf) - WINDOW - HORIZON + 1, EVAL_STRIDE):
             all_targets.append(sdf[target_col].iloc[t + WINDOW:t + WINDOW + HORIZON].mean())
@@ -955,8 +955,9 @@ def run_single_target(features_df, target_col, target_label, device):
             best_fast_thr = thr
     fast_pred = (val_fast >= best_fast_thr).astype(int)
 
+    # Persistence (use last training label for first prediction, not val[0])
     persist_pred = np.empty_like(y_val)
-    persist_pred[0] = y_val[0]
+    persist_pred[0] = y_train[-1]
     persist_pred[1:] = y_val[:-1]
 
     # ── MedSample baseline (fn_nano only) ──

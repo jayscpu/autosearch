@@ -21,6 +21,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+from features import TOP_35_FEATURES
+
 warnings.filterwarnings("ignore")
 
 try:
@@ -34,19 +37,7 @@ FEATURES_CSV = SCRIPT_DIR / "yolox_features.csv"
 DETS_CSV = SCRIPT_DIR / "yolox_detections.csv"
 RESULTS_TSV = SCRIPT_DIR / "evidential_results.tsv"
 
-FEATURES = [
-    "glcm_entropy", "image_entropy", "glcm_energy", "brightness_std",
-    "rms_contrast", "glcm_contrast", "mscn_v_pair_mean",
-    "gabor_nyquist_energy", "foreground_edge_density", "edge_density_coarse",
-    "foreground_pixel_ratio", "edge_fine_coarse_ratio", "fast_keypoints_half",
-    "shadow_pixel_ratio", "glcm_homogeneity", "gradient_magnitude_std",
-    "spatial_frequency", "foreground_blob_count", "mid_gradient_std",
-    "downsample_info_loss", "downsample_ssim", "mscn_mean",
-    "motion_pixel_ratio", "mid_high_freq_energy", "fft_critical_band_ratio",
-    "temporal_diff_mean", "mscn_skewness", "temporal_diff_std",
-    "keypoint_loss_ratio", "saturation_std", "ratio_top_bot_gradient_std",
-    "bot_gradient_std", "dark_channel_mean", "colorfulness", "mscn_h_pair_std",
-]
+FEATURES = TOP_35_FEATURES
 
 W, H, SW = 30, 30, 6
 N_STEPS = H // SW
@@ -521,7 +512,7 @@ def main():
     for w_lstm in [0.3, 0.5, 0.7]:
         for t1, t2 in [(10, 85), (15, 85), (10, 80), (15, 80), (20, 85)]:
             ens_pred = w_lstm * lstm_pred + (1 - w_lstm) * rf_pred
-            ens_var = w_lstm * lstm_var + (1 - w_lstm) * rf_var
+            ens_var = w_lstm**2 * lstm_var + (1 - w_lstm)**2 * rf_var  # Var(wA+(1-w)B)
             r = evaluate(ens_pred, y_val_tree, ens_var, y_train_tree, t1, t2)
             desc = f"fair_ens w_lstm={w_lstm} t1={t1}/t2={t2}"
             log_result(commit, r["mse"], r["mae"], r["unc_sep"], r["cls_acc"], n_val, "fair_ens", desc)
@@ -539,9 +530,24 @@ def main():
     print(f"\n{'='*80}", file=sys.stderr)
     print(f"  FINAL COMPARISON — EACH MODEL FULLY TUNED ({elapsed:.0f}s total)", file=sys.stderr)
     print(f"{'='*80}", file=sys.stderr)
+    # Load NIG results from results TSV instead of hardcoding
+    nig_row = None
+    if RESULTS_TSV.exists():
+        import csv
+        with open(RESULTS_TSV) as f:
+            rows = [r for r in csv.reader(f, delimiter='\t') if len(r) >= 8 and r[7] == 'evidential_nig']
+            if rows:
+                row = rows[-1]  # latest run
+                nig_row = {"cls_acc": float(row[4]), "unc_sep": float(row[3]),
+                           "mse": float(row[1]), "mae": float(row[2]),
+                           "config": row[8] if len(row) > 8 else ""}
+
     print(f"  {'Model':<22} {'cls_acc':>10} {'unc_sep':>12} {'MSE':>10} {'MAE':>10}   Config", file=sys.stderr)
     print(f"  {'-'*100}", file=sys.stderr)
-    print(f"  {'EVIDENTIAL NIG':<22} {'0.858':>10} {'+0.005750':>12} {'0.009':>10} {'0.071':>10}   λ1=0.3 h=128 drop=0.4 cosine LN", file=sys.stderr)
+    if nig_row:
+        print(f"  {'EVIDENTIAL NIG':<22} {nig_row['cls_acc']:>10.3f} {nig_row['unc_sep']:>+12.6f} {nig_row['mse']:>10.6f} {nig_row['mae']:>10.6f}   {nig_row['config']}", file=sys.stderr)
+    else:
+        print(f"  {'EVIDENTIAL NIG':<22} {'(no results — run train_reg.py first)':>45}", file=sys.stderr)
     for name, r in all_results.items():
         if r["cls_acc"] > 0:
             print(f"  {name:<22} {r['cls_acc']:>10.3f} {r['unc_sep']:>+12.6f} {r['mse']:>10.6f} {r['mae']:>10.6f}   {r.get('config','')}", file=sys.stderr)
@@ -549,7 +555,8 @@ def main():
 
     # Also print to stdout for capture
     print(f"\nFINAL_TABLE")
-    print(f"EVIDENTIAL_NIG\t0.858300\t0.005750\t0.009000\t0.071000")
+    if nig_row:
+        print(f"EVIDENTIAL_NIG\t{nig_row['cls_acc']:.6f}\t{nig_row['unc_sep']:.6f}\t{nig_row['mse']:.6f}\t{nig_row['mae']:.6f}")
     for name, r in all_results.items():
         if r["cls_acc"] > 0:
             print(f"{name}\t{r['cls_acc']:.6f}\t{r['unc_sep']:.6f}\t{r['mse']:.6f}\t{r['mae']:.6f}")

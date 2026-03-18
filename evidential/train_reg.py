@@ -21,6 +21,9 @@ from torch.utils.data import DataLoader, TensorDataset
 from sklearn.preprocessing import StandardScaler
 from scipy import stats as scipy_stats
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from features import TOP_35_FEATURES
+
 warnings.filterwarnings("ignore")
 
 # ═══════════════════════════════════════════════════════════════════
@@ -28,20 +31,7 @@ warnings.filterwarnings("ignore")
 # ═══════════════════════════════════════════════════════════════════
 
 CONFIG = {
-    # ── Features (top-35 Spearman from classification search) ──
-    "features": [
-        "glcm_entropy", "image_entropy", "glcm_energy", "brightness_std",
-        "rms_contrast", "glcm_contrast", "mscn_v_pair_mean",
-        "gabor_nyquist_energy", "foreground_edge_density", "edge_density_coarse",
-        "foreground_pixel_ratio", "edge_fine_coarse_ratio", "fast_keypoints_half",
-        "shadow_pixel_ratio", "glcm_homogeneity", "gradient_magnitude_std",
-        "spatial_frequency", "foreground_blob_count", "mid_gradient_std",
-        "downsample_info_loss", "downsample_ssim", "mscn_mean",
-        "motion_pixel_ratio", "mid_high_freq_energy", "fft_critical_band_ratio",
-        "temporal_diff_mean", "mscn_skewness", "temporal_diff_std",
-        "keypoint_loss_ratio", "saturation_std", "ratio_top_bot_gradient_std",
-        "bot_gradient_std", "dark_channel_mean", "colorfulness", "mscn_h_pair_std",
-    ],
+    "features": TOP_35_FEATURES,
 
     # ── NIG Loss Hyperparameters ──
     "lambda1": 0.3,          # evidence regularizer weight
@@ -207,9 +197,11 @@ def nig_loss(gamma, nu, alpha, beta, y):
     evidence = 2.0 * nu + alpha
     reg_evidence = error * evidence
 
-    reg_uncertainty = (1.0 / (alpha - 1.0 + 1e-6))
-
-    loss = nll + CONFIG["lambda1"] * reg_evidence + CONFIG["lambda2"] * reg_uncertainty
+    # Original Amini et al. 2020 loss: NLL + lambda * evidence regulariser only.
+    # Removed non-standard reg_uncertainty = 1/(alpha-1) term that penalised all
+    # epistemic uncertainty globally, pushing alpha toward infinity and undermining
+    # the evidential model's ability to express uncertainty on OOD inputs.
+    loss = nll + CONFIG["lambda1"] * reg_evidence
     return loss.mean()  # mean over batch AND steps
 
 
@@ -374,13 +366,19 @@ def evaluate(model, X_val, y_val, device, y_train_for_thresholds):
     t1 = float(np.percentile(y_train_for_thresholds.flatten(), CONFIG["t1_percentile"]))
     t2 = float(np.percentile(y_train_for_thresholds.flatten(), CONFIG["t2_percentile"]))
 
-    # ── 3-class conversion: use mean NIG params across steps ──
-    gamma_avg = gamma.mean(dim=1).cpu()
-    nu_avg = nu.mean(dim=1).cpu()
-    alpha_avg = alpha.mean(dim=1).cpu()
-    beta_avg = beta.mean(dim=1).cpu()
-
-    p_easy, p_moderate, p_hard = nig_to_class_probs(gamma_avg, nu_avg, alpha_avg, beta_avg, t1, t2)
+    # ── 3-class conversion: compute per-step class probs, then average ──
+    # (NIG is not closed under parameter averaging; average probabilities instead)
+    p_easy_steps, p_mod_steps, p_hard_steps = [], [], []
+    for s in range(n_steps):
+        pe, pm, ph = nig_to_class_probs(
+            gamma[:, s], nu[:, s], alpha[:, s], beta[:, s], t1, t2
+        )
+        p_easy_steps.append(pe)
+        p_mod_steps.append(pm)
+        p_hard_steps.append(ph)
+    p_easy = np.mean(p_easy_steps, axis=0)
+    p_moderate = np.mean(p_mod_steps, axis=0)
+    p_hard = np.mean(p_hard_steps, axis=0)
 
     probs = np.stack([p_easy, p_moderate, p_hard], axis=1)
     pred_class = probs.argmax(axis=1)

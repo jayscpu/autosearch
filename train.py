@@ -23,6 +23,9 @@ from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_sc
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import mutual_info_classif
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from features import TOP_35_FEATURES
+
 warnings.filterwarnings("ignore")
 
 # ═══════════════════════════════════════════════════════════════════
@@ -31,20 +34,7 @@ warnings.filterwarnings("ignore")
 
 CONFIG = {
     # ── Features ──
-    "features": [
-        # Top-35 by Spearman correlation (best config)
-        "glcm_entropy", "image_entropy", "glcm_energy", "brightness_std",
-        "rms_contrast", "glcm_contrast", "mscn_v_pair_mean",
-        "gabor_nyquist_energy", "foreground_edge_density", "edge_density_coarse",
-        "foreground_pixel_ratio", "edge_fine_coarse_ratio", "fast_keypoints_half",
-        "shadow_pixel_ratio", "glcm_homogeneity", "gradient_magnitude_std",
-        "spatial_frequency", "foreground_blob_count", "mid_gradient_std",
-        "downsample_info_loss", "downsample_ssim", "mscn_mean",
-        "motion_pixel_ratio", "mid_high_freq_energy", "fft_critical_band_ratio",
-        "temporal_diff_mean", "mscn_skewness", "temporal_diff_std",
-        "keypoint_loss_ratio", "saturation_std", "ratio_top_bot_gradient_std",
-        "bot_gradient_std", "dark_channel_mean", "colorfulness", "mscn_h_pair_std",
-    ],
+    "features": TOP_35_FEATURES,
 
     # ── Target definition ──
     "target": "miss_rate",        # "fn_nano", "miss_rate", or "frame_f1"
@@ -126,7 +116,7 @@ def load_data():
         elif CONFIG["target"] == "frame_f1":
             p = df["nano_tp"] / (df["nano_tp"] + df["nano_fp"]).clip(lower=1)
             r = df["nano_tp"] / (df["nano_tp"] + df["fn_nano"]).clip(lower=1)
-            df["frame_f1"] = (2 * p * r / (p + r).clip(lower=1e-8))
+            df["frame_f1"] = (2 * p * r) / (p + r).clip(lower=1e-8)
             # Invert: low F1 = hard, so target = 1 - frame_f1 for thresholding
             df["frame_f1_inv"] = 1.0 - df["frame_f1"]
 
@@ -433,9 +423,9 @@ def compute_baselines(y_train, y_val):
     maj_pred = np.full_like(y_val, majority)
     maj_metrics = evaluate(y_val, maj_pred)
 
-    # Persistence
+    # Persistence (use last training label for first prediction, not val[0])
     pers_pred = np.empty_like(y_val)
-    pers_pred[0] = y_val[0]
+    pers_pred[0] = y_train[-1]
     pers_pred[1:] = y_val[:-1]
     pers_metrics = evaluate(y_val, pers_pred)
 
@@ -558,8 +548,8 @@ def main():
     train_df = df[df["frame_id"] <= CONFIG["train_cutoff"]].copy()
     val_df = df[df["frame_id"] > CONFIG["train_cutoff"]].copy()
 
-    # ── Threshold ──
-    threshold = compute_threshold(df)
+    # ── Threshold (train only — avoid data leakage) ──
+    threshold = compute_threshold(train_df)
 
     # ── Scaler ──
     scaler = StandardScaler()

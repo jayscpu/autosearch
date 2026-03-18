@@ -22,6 +22,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+from features import TOP_35_FEATURES
+
 warnings.filterwarnings("ignore")
 
 try:
@@ -35,19 +38,7 @@ except ImportError:
 # ═══════════════════════════════════════════════════════════════════
 
 CONFIG = {
-    "features": [
-        "glcm_entropy", "image_entropy", "glcm_energy", "brightness_std",
-        "rms_contrast", "glcm_contrast", "mscn_v_pair_mean",
-        "gabor_nyquist_energy", "foreground_edge_density", "edge_density_coarse",
-        "foreground_pixel_ratio", "edge_fine_coarse_ratio", "fast_keypoints_half",
-        "shadow_pixel_ratio", "glcm_homogeneity", "gradient_magnitude_std",
-        "spatial_frequency", "foreground_blob_count", "mid_gradient_std",
-        "downsample_info_loss", "downsample_ssim", "mscn_mean",
-        "motion_pixel_ratio", "mid_high_freq_energy", "fft_critical_band_ratio",
-        "temporal_diff_mean", "mscn_skewness", "temporal_diff_std",
-        "keypoint_loss_ratio", "saturation_std", "ratio_top_bot_gradient_std",
-        "bot_gradient_std", "dark_channel_mean", "colorfulness", "mscn_h_pair_std",
-    ],
+    "features": TOP_35_FEATURES,
     "window": 30,
     "horizon": 30,
     "train_stride": 10,
@@ -241,14 +232,14 @@ def evaluate_model(y_pred, y_val, uncertainty, y_train, model_name):
     t1 = float(np.percentile(y_train, CONFIG["t1_percentile"]))
     t2 = float(np.percentile(y_train, CONFIG["t2_percentile"]))
 
-    # 3-class from predictions
-    pred_class = np.zeros(len(y_pred), dtype=int)
-    pred_class[y_pred >= t2] = 2
-    pred_class[(y_pred >= t1) & (y_pred < t2)] = 1
+    # 3-class from predictions (canonical mapping: default moderate, override easy/hard)
+    pred_class = np.ones(len(y_pred), dtype=int)  # default moderate
+    pred_class[y_pred < t1] = 0   # easy
+    pred_class[y_pred >= t2] = 2  # hard
 
-    true_class = np.zeros(len(y_val), dtype=int)
-    true_class[y_val >= t2] = 2
-    true_class[(y_val >= t1) & (y_val < t2)] = 1
+    true_class = np.ones(len(y_val), dtype=int)  # default moderate
+    true_class[y_val < t1] = 0   # easy
+    true_class[y_val >= t2] = 2  # hard
 
     cls_acc = float(np.mean(pred_class == true_class))
 
@@ -362,7 +353,7 @@ def main():
     # ── 6. LSTM + RF Ensemble ──
     print("  Computing LSTM+RF Ensemble...", file=sys.stderr)
     ensemble_pred = 0.5 * lstm_pred + 0.5 * rf_pred
-    ensemble_var = 0.5 * lstm_var + 0.5 * rf_var
+    ensemble_var = 0.25 * lstm_var + 0.25 * rf_var  # Var(0.5A+0.5B) = 0.25*Var(A)+0.25*Var(B)
     r = evaluate_model(ensemble_pred, y_val, ensemble_var, y_train, "lstm_rf_ensemble")
     results.append(r)
     print(f"    ENS:  MSE={r['mse']:.6f} MAE={r['mae']:.6f} cls_acc={r['cls_acc']:.3f} unc_sep={r['unc_sep']:.6f}", file=sys.stderr)
