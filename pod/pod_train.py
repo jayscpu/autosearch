@@ -14,6 +14,7 @@ Prints RESULT line parsed by the agent.
 """
 
 import json
+import random
 import sys
 import time
 import warnings
@@ -586,6 +587,11 @@ def main():
 
     # ── EVIDENTIAL MODE ──
     if mode == "evidential":
+        random.seed(42)
+        torch.manual_seed(42)
+        np.random.seed(42)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(42)
         model = train_evidential(X_train, y_train, X_within, y_within,
                                  n_feat, n_steps, device)
         m_within = eval_evidential(model, X_within, y_within, device, t1, t2)
@@ -614,8 +620,11 @@ def main():
         all_preds_within = []
         all_preds_cross = []
         for seed in CONFIG["seeds"]:
+            random.seed(seed)
             torch.manual_seed(seed)
             np.random.seed(seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(seed)
             model = train_plain(X_train, y_train, X_within, y_within,
                                 n_feat, n_steps, device)
             with torch.no_grad():

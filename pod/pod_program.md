@@ -53,9 +53,11 @@ n_steps=5.
 5. `unc_sep_within` / `unc_sep_cross` — uncertainty separation (mean epistemic
    uncertainty of incorrect minus correct predictions). MUST be > 0.
 
-**Ranking:**
-- Evidential: filter by unc_sep > 0, then maximize cls_acc, then minimize MSE
-- Plain: minimize mse_within, require cls_trans > 0.50
+**Ranking (same for both modes):**
+- Filter: cls_trans > 0.50 on all val sets
+- Primary: minimize mse_within
+- Tiebreaker: maximize cls_acc
+- Evidential additionally: require unc_sep > 0 (uncertainty must be calibrated)
 
 ## Available Intersections
 
@@ -74,8 +76,9 @@ is held out, fine-tuning calibration tests.
 ## Search Space
 
 ### Model Mode
-- Start with evidential (primary goal is uncertainty-aware predictions for MPC)
-- Compare against plain regression as a baseline
+- Both modes are equal — search each independently
+- Plain: LSTM (MSE) + RF regressor, evaluated on same metrics
+- Evidential: EvidentialLSTM (NIG loss), additionally provides uncertainty
 
 ### Features
 - Start with top-35 Spearman features from classification search (proven best)
@@ -117,27 +120,35 @@ is held out, fine-tuning calibration tests.
 ## Experiment Protocol
 
 1. Read pod_train.py fully before starting
-2. Run baseline first (evidential mode, default config). Record in pod_results.tsv
+2. Run BOTH baselines first: evidential mode, then plain mode. Record both.
 3. ONE change at a time
 4. Run the experiment, parse the RESULT line
 5. Log to pod_results.tsv
-6. Keep if: unc_sep > 0 AND cls_acc improves (or MSE improves with unc_sep maintained)
-7. Discard if: unc_sep ≤ 0 or cls_acc drops significantly
+6. Keep if: mse_within improves AND cls_trans > 0.50
+7. Discard if: mse_within worsens or cls_trans drops below 0.50
 8. Git commit each experiment
 9. Crash → revert
 10. NEVER STOP — continue until manually stopped
 
 ## Priority Order
 
-1. Establish baseline with evidential mode, top-35 features, default NIG params
-2. Run plain regression baseline for comparison
-3. Sweep λ₁ (evidence regularizer) — MOST important for uncertainty calibration
-4. Sweep difficulty thresholds t₁, t₂
-5. Architecture (hidden size, layers, dropout)
-6. Training hyperparams (LR, batch size)
-7. Feature subsets
-8. Window/horizon/sub_window
-9. Combine best settings
+Run both modes in parallel — each mode gets its own search track.
+
+**Both modes:**
+1. Establish baselines (evidential + plain, top-35 features, default config)
+2. Sweep difficulty thresholds t₁, t₂
+3. Architecture (hidden size, layers, dropout)
+4. Training hyperparams (LR, batch size)
+5. Feature subsets
+6. Window/horizon/sub_window
+7. Combine best settings
+
+**Evidential-specific (interleave with above):**
+- Sweep λ₁ (evidence regularizer): {0.01, 0.05, 0.1, 0.25, 0.5, 1.0}
+
+**Plain-specific (interleave with above):**
+- Sweep RF hyperparams (n_estimators, max_depth, min_samples_leaf)
+- Sweep number of ensemble seeds
 
 ## CRASH SAFETY
 
