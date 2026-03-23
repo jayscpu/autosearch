@@ -89,6 +89,21 @@ test.
 - Start with top-35 Spearman features from classification search (proven best)
 - Also try all 65, all 75, top-20, top-25, top-30, top-40
 - The optimal subset for regression may differ from classification
+- **Feature selection methods** (set flags in CONFIG, rankings print to stderr):
+  - `spearman_feature_selection`: absolute Spearman rank correlation with miss_rate
+  - `mi_feature_selection`: mutual information regression on RF summary features
+  - `lasso_feature_selection`: L1 coefficient magnitude at best CV alpha
+  - `elasticnet_feature_selection`: L1+L2 (better than Lasso with correlated features, keeps groups)
+  - `rfe_feature_selection`: Recursive Feature Elimination with RF (backward elimination, CV-optimal size)
+  - `rf_feature_importance`: RF Gini impurity importance (summed across mean/std/slope)
+  - `permutation_importance`: model-agnostic permutation importance on RF
+  - `gradient_feature_selection`: LSTM input gradient magnitudes (3-seed, 50 epochs)
+- Run all 6 methods, compare rankings, pick consensus top-K
+- **`sffs_feature_selection`**: Sequential Forward Floating Selection (wrapper method).
+  Directly optimizes mse on early-stop via RF. Greedy add-one + backtrack-remove.
+  Searches over all 75 features. Slow (~1-2hr) but gives empirically optimal subset.
+  Set `sffs_max_features` to cap subset size. Prints best subset and exits.
+  Optional: set `sffs_start_features` to warm-start from a known good subset.
 
 ### NIG Hyperparameters (evidential mode, HIGH PRIORITY)
 - λ₁ (evidence regularizer weight): {0.01, 0.05, 0.1, 0.25, 0.3, 0.5, 1.0}

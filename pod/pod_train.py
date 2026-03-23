@@ -29,9 +29,14 @@ import torch.nn as nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.feature_selection import mutual_info_regression
+from sklearn.inspection import permutation_importance as sklearn_perm_importance
+from sklearn.feature_selection import RFECV
+from sklearn.linear_model import ElasticNetCV, LassoCV
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from sklearn.preprocessing import StandardScaler
 from scipy import stats as scipy_stats
+from scipy.stats import spearmanr
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pod_features import ALL_FEATURES, TOP_35_SPEARMAN
@@ -55,6 +60,7 @@ CONFIG = {
     "sub_window": 6,          # multi-step: each step predicts mean over sub_window frames
     "train_stride": 10,
     "eval_stride": 30,
+    "warmup_frames": 200,      # skip first N frames per video (MOG2 bg model warm-up)
 
     # ── Intersections ──
     "train_intersections": [
@@ -92,6 +98,19 @@ CONFIG = {
     "rf_n_estimators": 500,
     "rf_max_depth": 20,
     "rf_min_samples_leaf": 10,
+
+    # ── Feature selection (set True to print rankings, then continue training) ──
+    "spearman_feature_selection": False,
+    "mi_feature_selection": False,
+    "lasso_feature_selection": False,
+    "elasticnet_feature_selection": False,
+    "rfe_feature_selection": False,
+    "rf_feature_importance": False,
+    "permutation_importance": False,
+    "gradient_feature_selection": False,
+    "sffs_feature_selection": False,  # Sequential Forward Floating Selection (slow, ~1-2hr)
+    "sffs_max_features": 50,          # stop SFFS after this many features
+    "sffs_start_features": None,      # list of features to start from (None = empty)
 }
 
 # ═══════════════════════════════════════════════════════════════════
@@ -176,8 +195,13 @@ def build_windows(df, feature_cols, stride, scaler):
     # Group by sequence AND video to avoid windows spanning video boundaries
     # (temporal features like optical flow reset to 0 at each video start)
     group_cols = ["sequence", "video"] if "video" in df.columns else ["sequence"]
+    warmup = CONFIG.get("warmup_frames", 0)
     for _, sdf in df.groupby(group_cols):
         sdf = sdf.sort_values("frame_id").reset_index(drop=True)
+        # Skip MOG2 warm-up frames: foreground_pixel_ratio and foreground_blob_count
+        # are systematically inflated before the background model converges (~200 frames)
+        if warmup > 0:
+            sdf = sdf.iloc[warmup:].reset_index(drop=True)
         n = len(sdf)
         if n < total_need:
             continue
@@ -204,6 +228,357 @@ def build_windows(df, feature_cols, stride, scaler):
     X = np.array(X_list, dtype=np.float32)
     y = np.array(y_list, dtype=np.float32)  # shape: (N, n_steps)
     return X, y, boundary_indices
+
+
+# ═══════════════════════════════════════════════════════════════════
+# FEATURE SELECTION (print rankings, continue with normal training)
+# ═══════════════════════════════════════════════════════════════════
+
+def _print_ranking(title, ranked):
+    """Print a feature ranking to stderr."""
+    print(f"\n=== {title} ===", file=sys.stderr)
+    for rank, (fname, score) in enumerate(ranked, 1):
+        print(f"  {rank:3d}. {fname:40s}  {score:.6f}", file=sys.stderr)
+    print(f"=== END {title} ===\n", file=sys.stderr)
+
+
+def run_feature_selection(train_df, feature_cols, X_train, y_train, n_feat, device):
+    """Run any enabled feature selection methods. Prints rankings to stderr."""
+    warmup = CONFIG.get("warmup_frames", 0)
+    target_col = get_target_column()
+
+    # Frame-level training data (warmup-skipped) for correlation-based methods
+    def _get_frame_data():
+        group_cols = ["sequence", "video"] if "video" in train_df.columns else ["sequence"]
+        kept = []
+        for _, sdf in train_df.groupby(group_cols):
+            sdf = sdf.sort_values("frame_id")
+            if warmup > 0:
+                sdf = sdf.iloc[warmup:]
+            kept.append(sdf)
+        frame_df = pd.concat(kept, ignore_index=True)
+        return frame_df
+
+    # ── Spearman correlation ──
+    if CONFIG.get("spearman_feature_selection"):
+        frame_df = _get_frame_data()
+        y_frames = frame_df[target_col].values
+        scores = []
+        for f in feature_cols:
+            rho, _ = spearmanr(frame_df[f].values, y_frames)
+            scores.append((f, abs(rho) if not np.isnan(rho) else 0.0))
+        scores.sort(key=lambda x: -x[1])
+        _print_ranking("SPEARMAN FEATURE RANKING", scores)
+
+    # ── Mutual Information ──
+    if CONFIG.get("mi_feature_selection"):
+        X_train_rf = build_rf_features(X_train)
+        n_raw = n_feat
+        mi_scores = np.zeros(n_raw)
+        for i in range(n_raw):
+            feat_block = X_train_rf[:, [i, i + n_raw, i + 2 * n_raw]]
+            mi = mutual_info_regression(feat_block, y_train.mean(axis=1),
+                                        n_neighbors=5, random_state=42)
+            mi_scores[i] = mi.sum()
+        ranked = sorted(zip(feature_cols, mi_scores), key=lambda x: -x[1])
+        _print_ranking("MUTUAL INFORMATION FEATURE RANKING", ranked)
+
+    # ── Lasso (L1 regularization) ──
+    if CONFIG.get("lasso_feature_selection"):
+        frame_df = _get_frame_data()
+        y_frames = frame_df[target_col].values
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(frame_df[feature_cols].values)
+        lasso = LassoCV(cv=5, random_state=42, max_iter=10000)
+        lasso.fit(X_scaled, y_frames)
+        coefs = np.abs(lasso.coef_)
+        print(f"  Lasso best alpha={lasso.alpha_:.6f}, "
+              f"non-zero={np.sum(coefs > 0)}/{n_feat}", file=sys.stderr)
+        ranked = sorted(zip(feature_cols, coefs), key=lambda x: -x[1])
+        _print_ranking("LASSO FEATURE RANKING", ranked)
+
+    # ── Elastic Net (L1 + L2, better with correlated features) ──
+    if CONFIG.get("elasticnet_feature_selection"):
+        frame_df = _get_frame_data()
+        y_frames = frame_df[target_col].values
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(frame_df[feature_cols].values)
+        enet = ElasticNetCV(l1_ratio=[0.1, 0.3, 0.5, 0.7, 0.9],
+                            cv=5, random_state=42, max_iter=10000)
+        enet.fit(X_scaled, y_frames)
+        coefs = np.abs(enet.coef_)
+        print(f"  ElasticNet best alpha={enet.alpha_:.6f}, "
+              f"l1_ratio={enet.l1_ratio_:.2f}, "
+              f"non-zero={np.sum(coefs > 0)}/{n_feat}", file=sys.stderr)
+        ranked = sorted(zip(feature_cols, coefs), key=lambda x: -x[1])
+        _print_ranking("ELASTIC NET FEATURE RANKING", ranked)
+
+    # ── RFE (Recursive Feature Elimination with RF, backward elimination) ──
+    if CONFIG.get("rfe_feature_selection"):
+        X_train_rf = build_rf_features(X_train)
+        y_train_mean = y_train.mean(axis=1)
+        rf = RandomForestRegressor(
+            n_estimators=200, max_depth=15, min_samples_leaf=10,
+            max_features="sqrt", n_jobs=-1, random_state=42)
+        # RFECV with 3-fold CV to find optimal number of features
+        # step=3 removes 3 RF-summary features per iteration (= 1 raw feature,
+        # since each raw feature maps to 3 summary stats: mean/std/slope)
+        rfe = RFECV(rf, step=3, cv=3, scoring="neg_mean_squared_error",
+                    min_features_to_select=10, n_jobs=-1)
+        rfe.fit(X_train_rf, y_train_mean)
+        # Map RFE ranking back to raw features: min rank across mean/std/slope
+        n_raw = n_feat
+        raw_ranks = np.zeros(n_raw)
+        for i in range(n_raw):
+            raw_ranks[i] = min(rfe.ranking_[i],
+                               rfe.ranking_[i + n_raw],
+                               rfe.ranking_[i + 2 * n_raw])
+        n_selected = np.sum(raw_ranks == 1)
+        print(f"  RFE optimal: {n_selected} raw features "
+              f"({rfe.n_features_} RF-summary features)", file=sys.stderr)
+        # Score = negative rank (rank 1 = best → highest score)
+        ranked = sorted(zip(feature_cols, -raw_ranks), key=lambda x: -x[1])
+        # Print with actual rank values
+        ranked_for_print = [(f, -s) for f, s in ranked]
+        _print_ranking("RFE FEATURE RANKING (lower rank = better)", ranked_for_print)
+        # Also print the selected subset
+        selected = [f for f, r in zip(feature_cols, raw_ranks) if r == 1]
+        print(f"\n  RFE selected features ({len(selected)}):", file=sys.stderr)
+        for f in selected:
+            print(f"    {f}", file=sys.stderr)
+
+    # ── RF impurity importance ──
+    if CONFIG.get("rf_feature_importance"):
+        X_train_rf = build_rf_features(X_train)
+        y_train_mean = y_train.mean(axis=1)
+        rf = RandomForestRegressor(
+            n_estimators=200, max_depth=15, min_samples_leaf=10,
+            max_features="sqrt", n_jobs=-1, random_state=42)
+        rf.fit(X_train_rf, y_train_mean)
+        # Map back to raw features: sum importance of mean/std/slope for each
+        n_raw = n_feat
+        combined_imp = np.zeros(n_raw)
+        for i in range(n_raw):
+            combined_imp[i] = (rf.feature_importances_[i]
+                               + rf.feature_importances_[i + n_raw]
+                               + rf.feature_importances_[i + 2 * n_raw])
+        ranked = sorted(zip(feature_cols, combined_imp), key=lambda x: -x[1])
+        _print_ranking("RF IMPURITY FEATURE RANKING", ranked)
+
+    # ── Permutation importance (RF-based, model-agnostic) ──
+    # Evaluated on training data (not early-stop) to avoid double-dipping:
+    # early-stop already selects checkpoints, using it here too would create
+    # a mild overfitting loop (features chosen to look good on early-stop,
+    # then checkpoint also chosen on early-stop with those features).
+    if CONFIG.get("permutation_importance"):
+        X_train_rf = build_rf_features(X_train)
+        y_train_mean = y_train.mean(axis=1)
+        rf = RandomForestRegressor(
+            n_estimators=200, max_depth=15, min_samples_leaf=10,
+            max_features="sqrt", n_jobs=-1, random_state=42)
+        rf.fit(X_train_rf, y_train_mean)
+        result = sklearn_perm_importance(rf, X_train_rf, y_train_mean,
+                                         n_repeats=5, random_state=42, n_jobs=-1)
+        # Map back to raw features
+        n_raw = n_feat
+        combined_imp = np.zeros(n_raw)
+        for i in range(n_raw):
+            combined_imp[i] = (result.importances_mean[i]
+                               + result.importances_mean[i + n_raw]
+                               + result.importances_mean[i + 2 * n_raw])
+        ranked = sorted(zip(feature_cols, combined_imp), key=lambda x: -x[1])
+        _print_ranking("PERMUTATION IMPORTANCE FEATURE RANKING", ranked)
+
+    # ── Gradient-based importance (LSTM) ──
+    if CONFIG.get("gradient_feature_selection"):
+        seeds = [42, 123, 456]
+        importance_accum = np.zeros(n_feat, dtype=np.float64)
+        n_steps = CONFIG["horizon"] // CONFIG["sub_window"]
+
+        for seed in seeds:
+            torch.manual_seed(seed)
+            np.random.seed(seed)
+            model = PlainLSTM(input_size=n_feat, n_steps=n_steps).to(device)
+            optimizer = Adam(model.parameters(), lr=CONFIG["lr"],
+                             weight_decay=CONFIG["weight_decay"])
+            mse_loss = nn.MSELoss()
+            train_loader = DataLoader(
+                TensorDataset(torch.from_numpy(X_train), torch.from_numpy(y_train)),
+                batch_size=CONFIG["batch_size"], shuffle=True)
+
+            feat_grad_sum = np.zeros(n_feat, dtype=np.float64)
+            n_batches = 0
+
+            for epoch in range(min(50, CONFIG["max_epochs"])):
+                model.train()
+                for xb, yb in train_loader:
+                    xb, yb = xb.to(device), yb.to(device)
+                    xb.requires_grad_(True)
+                    loss = mse_loss(model(xb), yb)
+                    optimizer.zero_grad()
+                    loss.backward()
+                    with torch.no_grad():
+                        grad_mag = xb.grad.abs().mean(dim=(0, 1))
+                        feat_grad_sum += grad_mag.cpu().numpy()
+                        n_batches += 1
+                    nn.utils.clip_grad_norm_(model.parameters(), CONFIG["grad_clip"])
+                    optimizer.step()
+
+            importance_accum += feat_grad_sum / max(n_batches, 1)
+            print(f"  Gradient importance: seed {seed} done ({n_batches} batches)",
+                  file=sys.stderr)
+
+        importance_accum /= len(seeds)
+        ranked = sorted(zip(feature_cols, importance_accum), key=lambda x: -x[1])
+        _print_ranking("GRADIENT FEATURE RANKING", ranked)
+
+
+def _sffs_eval_rf(feature_subset, train_df, earlystop_df):
+    """Train RF on a feature subset, return MSE on early-stop set.
+
+    Uses early-stop for SFFS evaluation — this is acceptable because SFFS
+    only runs once to select features, then early-stop reverts to its normal
+    role (checkpoint selection) with the chosen features fixed.
+    """
+    scaler = StandardScaler()
+    scaler.fit(train_df[feature_subset].values)
+
+    X_train, y_train, _ = build_windows(
+        train_df, feature_subset, CONFIG["train_stride"], scaler)
+    X_es, y_es, _ = build_windows(
+        earlystop_df, feature_subset, CONFIG["eval_stride"], scaler)
+
+    if len(y_es) == 0 or len(y_train) == 0:
+        return float("inf")
+
+    X_train_rf = build_rf_features(X_train)
+    X_es_rf = build_rf_features(X_es)
+    y_train_mean = y_train.mean(axis=1)
+    y_es_mean = y_es.mean(axis=1)
+
+    rf = RandomForestRegressor(
+        n_estimators=CONFIG["rf_n_estimators"],
+        max_depth=CONFIG["rf_max_depth"],
+        min_samples_leaf=CONFIG["rf_min_samples_leaf"],
+        max_features="sqrt", n_jobs=-1, random_state=42)
+    rf.fit(X_train_rf, y_train_mean)
+
+    pred = rf.predict(X_es_rf)
+    return float(mean_squared_error(y_es_mean, pred))
+
+
+def run_sffs(all_features, train_df, earlystop_df):
+    """Sequential Forward Floating Selection (SFFS).
+
+    Greedy forward selection with backtracking: after each feature addition,
+    try removing each existing feature — if removal improves MSE, drop it.
+    This escapes local optima that plain forward selection gets stuck in.
+
+    Prints progress and the best subset at each size. Outputs a CONFIG-ready
+    feature list to stdout.
+    """
+    max_k = CONFIG.get("sffs_max_features", 50)
+    start_features = CONFIG.get("sffs_start_features") or []
+
+    selected = list(start_features)
+    remaining = [f for f in all_features if f not in selected]
+
+    # Evaluate starting point
+    if selected:
+        best_mse = _sffs_eval_rf(selected, train_df, earlystop_df)
+        print(f"  SFFS start: {len(selected)} features, mse={best_mse:.6f}",
+              file=sys.stderr)
+    else:
+        best_mse = float("inf")
+
+    # Track best subset at each size for the final report
+    best_at_k = {}
+    if selected:
+        best_at_k[len(selected)] = (best_mse, list(selected))
+
+    t0 = time.time()
+    n_evals = 0
+
+    while len(selected) < max_k and remaining:
+        # ── Forward step: find best feature to add ──
+        best_add_mse = float("inf")
+        best_add_feat = None
+
+        for feat in remaining:
+            candidate = selected + [feat]
+            mse = _sffs_eval_rf(candidate, train_df, earlystop_df)
+            n_evals += 1
+            if mse < best_add_mse:
+                best_add_mse = mse
+                best_add_feat = feat
+
+        selected.append(best_add_feat)
+        remaining.remove(best_add_feat)
+        best_mse = best_add_mse
+        k = len(selected)
+
+        elapsed = time.time() - t0
+        print(f"  SFFS +{best_add_feat:<40s} k={k:2d}  "
+              f"mse={best_mse:.6f}  ({n_evals} evals, {elapsed:.0f}s)",
+              file=sys.stderr)
+
+        # ── Backward step: try removing each feature ──
+        improved = True
+        while improved and len(selected) > 1:
+            improved = False
+            best_drop_mse = best_mse
+            best_drop_feat = None
+
+            for feat in selected:
+                candidate = [f for f in selected if f != feat]
+                mse = _sffs_eval_rf(candidate, train_df, earlystop_df)
+                n_evals += 1
+                if mse < best_drop_mse:
+                    best_drop_mse = mse
+                    best_drop_feat = feat
+
+            if best_drop_feat is not None:
+                selected.remove(best_drop_feat)
+                remaining.append(best_drop_feat)
+                best_mse = best_drop_mse
+                k = len(selected)
+                improved = True
+                print(f"  SFFS -{best_drop_feat:<40s} k={k:2d}  "
+                      f"mse={best_mse:.6f}  (backtrack)", file=sys.stderr)
+
+        # Record best at this size
+        k = len(selected)
+        if k not in best_at_k or best_mse < best_at_k[k][0]:
+            best_at_k[k] = (best_mse, list(selected))
+
+    # ── Report ──
+    elapsed = time.time() - t0
+    print(f"\n  SFFS complete: {n_evals} RF evaluations in {elapsed:.0f}s",
+          file=sys.stderr)
+
+    print(f"\n{'=' * 60}", file=sys.stderr)
+    print("SFFS RESULTS (best MSE at each subset size)", file=sys.stderr)
+    print(f"{'=' * 60}", file=sys.stderr)
+    print(f"  {'k':>3}  {'MSE':>12}", file=sys.stderr)
+    print(f"  {'-' * 17}", file=sys.stderr)
+
+    overall_best_k = min(best_at_k, key=lambda k: best_at_k[k][0])
+    for k in sorted(best_at_k):
+        mse, _ = best_at_k[k]
+        marker = " <-- BEST" if k == overall_best_k else ""
+        print(f"  {k:>3}  {mse:>12.6f}{marker}", file=sys.stderr)
+
+    best_mse_final, best_subset_final = best_at_k[overall_best_k]
+
+    # Print CONFIG-ready output to stdout
+    print(f"\n# SFFS best subset: {overall_best_k} features, "
+          f"mse={best_mse_final:.6f}")
+    print("SFFS_BEST_FEATURES = [")
+    for f in best_subset_final:
+        print(f'    "{f}",')
+    print("]")
+
+    return best_subset_final
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -334,8 +709,11 @@ def nig_loss(gamma, nu, alpha, beta, y):
            + torch.lgamma(alpha) - torch.lgamma(alpha + 0.5))
 
     error = torch.abs(y - gamma)
-    # Penalize only learned evidence: subtract the +1.0 offset baked into alpha
-    # so the regularizer doesn't introduce a hidden MAE term (Amini et al. 2020)
+    # NOTE: Amini et al. (2020, Eq. 9) define evidence as (2ν + α). We use
+    # (2ν + α − 1) to exclude the +1.0 floor baked into α's parameterization,
+    # so that zero learned evidence → zero regularization penalty. Without this,
+    # the regularizer introduces a hidden MAE term even at the prior (α=1, ν=0).
+    # See Meinert & Lavin (2022) for discussion of regularizer pathologies.
     evidence = 2.0 * nu + (alpha - 1.0)
     reg_evidence = error * evidence
 
@@ -686,6 +1064,19 @@ def main():
     print(f"  Cross-val: {len(cross_val_df)} frames from {CONFIG['test_intersection']}",
           file=sys.stderr)
 
+    # ── SFFS (runs before normal windowing, uses ALL_FEATURES) ──
+    if CONFIG.get("sffs_feature_selection"):
+        print("\n  ── Sequential Forward Floating Selection ──", file=sys.stderr)
+        sffs_features = ALL_FEATURES if feature_cols is not TOP_35_SPEARMAN else ALL_FEATURES
+        sffs_missing = [f for f in sffs_features if f not in df.columns]
+        if sffs_missing:
+            print(f"ERROR: Missing features for SFFS: {sffs_missing}", file=sys.stderr)
+            sys.exit(1)
+        run_sffs(sffs_features, train_df, earlystop_df)
+        print("\n  SFFS complete. Update CONFIG['features'] with the result and re-run.",
+              file=sys.stderr)
+        sys.exit(0)
+
     # Scaler from training data only (not early-stop or val)
     scaler = StandardScaler()
     scaler.fit(train_df[feature_cols].values)
@@ -711,6 +1102,17 @@ def main():
         print("ERROR: Empty val set. Check data or window/horizon settings.",
               file=sys.stderr)
         sys.exit(1)
+
+    # ── Feature selection (if any flags are enabled) ──
+    any_fs = any(CONFIG.get(k) for k in [
+        "spearman_feature_selection", "mi_feature_selection",
+        "lasso_feature_selection", "elasticnet_feature_selection",
+        "rfe_feature_selection", "rf_feature_importance",
+        "permutation_importance", "gradient_feature_selection"])
+    if any_fs:
+        print("\n  ── Feature Selection ──", file=sys.stderr)
+        run_feature_selection(train_df, feature_cols, X_train, y_train,
+                              n_feat, device)
 
     # Difficulty thresholds from training data
     t1 = float(np.percentile(y_train.flatten(), CONFIG["t1_percentile"]))
