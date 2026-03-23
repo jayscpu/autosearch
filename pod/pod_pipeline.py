@@ -4,7 +4,7 @@
 Processes 5 traffic camera intersections from the Bellevue Traffic Video Dataset.
 For each intersection:
   1. Extract frames at 2fps from each video file
-  2. Run YOLO11n@640, YOLO11s@640, YOLO11m@640, YOLO11x@960 (ground truth)
+  2. Run YOLO11n@640, YOLO11s@640, YOLO11m@640, YOLO11x@1280 (ground truth)
   3. Greedy IoU matching → fn_nano, fn_small, fn_medium per frame
   4. Extract spatial features (65 original + 10 new temporal/detector features)
   5. Output per-intersection CSVs
@@ -44,9 +44,8 @@ IOU_THRESH = 0.5
 VEHICLE_COCO = {2, 3, 5, 7}
 FPS_TARGET = 2  # extract at 2fps
 
-# Bellevue videos are 1280x720@30fps; we extract at 960x540 for speed
-# (still larger than nano@320, preserves medium/x@640 detail)
-FRAME_W, FRAME_H = 960, 540
+# Bellevue videos are 1280x720@30fps; we extract at original resolution for maximum ground truth quality
+FRAME_W, FRAME_H = 1280, 720
 STRIP_H = FRAME_H // 3
 
 INTERSECTIONS = [
@@ -663,8 +662,8 @@ def process_intersection(intersection_name):
         small_dets = run_yolo_on_frames(frame_files, small_model, 640)
         print(f"    Running YOLO11m@640 ...", flush=True)
         medium_dets = run_yolo_on_frames(frame_files, medium_model, 640)
-        print(f"    Running YOLO11x@960 ...", flush=True)
-        x_dets = run_yolo_on_frames(frame_files, x_model, 960)
+        print(f"    Running YOLO11x@1280 ...", flush=True)
+        x_dets = run_yolo_on_frames(frame_files, x_model, 1280)
 
         # Phase 3+4: Matching + Feature extraction
         print(f"    Matching + feature extraction ...", flush=True)
