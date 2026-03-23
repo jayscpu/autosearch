@@ -284,6 +284,12 @@ def run_feature_selection(train_df, feature_cols, X_train, y_train, n_feat, devi
         _print_ranking("MUTUAL INFORMATION FEATURE RANKING", ranked)
 
     # ── Lasso (L1 regularization) ──
+    # NOTE: Lasso and ElasticNet fit their own scaler on warmup-skipped
+    # frame-level data. The main pipeline fits a different scaler on the full
+    # train_df (no frame-level warmup skip). Coefficient magnitudes reflect a
+    # slightly different standardization than what the LSTM sees, so these
+    # rankings are not directly comparable to the windowed methods (MI, RF
+    # importance, gradient). Use as a cross-check, not as ground truth.
     if CONFIG.get("lasso_feature_selection"):
         frame_df = _get_frame_data()
         y_frames = frame_df[target_col].values
@@ -433,28 +439,29 @@ def run_feature_selection(train_df, feature_cols, X_train, y_train, n_feat, devi
         _print_ranking("GRADIENT FEATURE RANKING", ranked)
 
 
-def _sffs_eval_rf(feature_subset, train_df, earlystop_df):
-    """Train RF on a feature subset, return MSE on early-stop set.
+def _sffs_eval_rf(feature_subset, train_df, within_val_df):
+    """Train RF on a feature subset, return MSE on within-val set.
 
-    Uses early-stop for SFFS evaluation — this is acceptable because SFFS
-    only runs once to select features, then early-stop reverts to its normal
-    role (checkpoint selection) with the chosen features fixed.
+    Uses within-val (not early-stop) to avoid double-dipping: SFFS makes
+    hundreds of evaluations iteratively optimizing features against this set.
+    If early-stop were used, the features would be tuned to it, then checkpoint
+    selection would also use early-stop — creating a leakage loop.
     """
     scaler = StandardScaler()
     scaler.fit(train_df[feature_subset].values)
 
     X_train, y_train, _ = build_windows(
         train_df, feature_subset, CONFIG["train_stride"], scaler)
-    X_es, y_es, _ = build_windows(
-        earlystop_df, feature_subset, CONFIG["eval_stride"], scaler)
+    X_val, y_val, _ = build_windows(
+        within_val_df, feature_subset, CONFIG["eval_stride"], scaler)
 
-    if len(y_es) == 0 or len(y_train) == 0:
+    if len(y_val) == 0 or len(y_train) == 0:
         return float("inf")
 
     X_train_rf = build_rf_features(X_train)
-    X_es_rf = build_rf_features(X_es)
+    X_val_rf = build_rf_features(X_val)
     y_train_mean = y_train.mean(axis=1)
-    y_es_mean = y_es.mean(axis=1)
+    y_val_mean = y_val.mean(axis=1)
 
     rf = RandomForestRegressor(
         n_estimators=CONFIG["rf_n_estimators"],
@@ -463,11 +470,11 @@ def _sffs_eval_rf(feature_subset, train_df, earlystop_df):
         max_features="sqrt", n_jobs=-1, random_state=42)
     rf.fit(X_train_rf, y_train_mean)
 
-    pred = rf.predict(X_es_rf)
-    return float(mean_squared_error(y_es_mean, pred))
+    pred = rf.predict(X_val_rf)
+    return float(mean_squared_error(y_val_mean, pred))
 
 
-def run_sffs(all_features, train_df, earlystop_df):
+def run_sffs(all_features, train_df, within_val_df):
     """Sequential Forward Floating Selection (SFFS).
 
     Greedy forward selection with backtracking: after each feature addition,
@@ -485,7 +492,7 @@ def run_sffs(all_features, train_df, earlystop_df):
 
     # Evaluate starting point
     if selected:
-        best_mse = _sffs_eval_rf(selected, train_df, earlystop_df)
+        best_mse = _sffs_eval_rf(selected, train_df, within_val_df)
         print(f"  SFFS start: {len(selected)} features, mse={best_mse:.6f}",
               file=sys.stderr)
     else:
@@ -506,7 +513,7 @@ def run_sffs(all_features, train_df, earlystop_df):
 
         for feat in remaining:
             candidate = selected + [feat]
-            mse = _sffs_eval_rf(candidate, train_df, earlystop_df)
+            mse = _sffs_eval_rf(candidate, train_df, within_val_df)
             n_evals += 1
             if mse < best_add_mse:
                 best_add_mse = mse
@@ -531,7 +538,7 @@ def run_sffs(all_features, train_df, earlystop_df):
 
             for feat in selected:
                 candidate = [f for f in selected if f != feat]
-                mse = _sffs_eval_rf(candidate, train_df, earlystop_df)
+                mse = _sffs_eval_rf(candidate, train_df, within_val_df)
                 n_evals += 1
                 if mse < best_drop_mse:
                     best_drop_mse = mse
@@ -1067,12 +1074,12 @@ def main():
     # ── SFFS (runs before normal windowing, uses ALL_FEATURES) ──
     if CONFIG.get("sffs_feature_selection"):
         print("\n  ── Sequential Forward Floating Selection ──", file=sys.stderr)
-        sffs_features = ALL_FEATURES if feature_cols is not TOP_35_SPEARMAN else ALL_FEATURES
+        sffs_features = ALL_FEATURES
         sffs_missing = [f for f in sffs_features if f not in df.columns]
         if sffs_missing:
             print(f"ERROR: Missing features for SFFS: {sffs_missing}", file=sys.stderr)
             sys.exit(1)
-        run_sffs(sffs_features, train_df, earlystop_df)
+        run_sffs(sffs_features, train_df, within_val_df)
         print("\n  SFFS complete. Update CONFIG['features'] with the result and re-run.",
               file=sys.stderr)
         sys.exit(0)
