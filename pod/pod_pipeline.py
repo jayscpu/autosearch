@@ -59,7 +59,7 @@ INTERSECTIONS = [
 # Reusable OpenCV objects
 DARK_KERNEL = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 15))
 FAST_DETECTOR = cv2.FastFeatureDetector_create(threshold=20)
-FAST_DETECTOR_320 = cv2.FastFeatureDetector_create(threshold=20)
+FAST_DETECTOR_HALF = cv2.FastFeatureDetector_create(threshold=20)
 MOG2_DICT = {}
 _FFT_MASKS = {}
 
@@ -206,7 +206,7 @@ def extract_resolution_features(gray, gray_f, bgr):
     feats["fast_keypoints_full"] = float(n_kps_full / (h * w))
 
     gray_half = cv2.resize(gray, (w // 2, h // 2), interpolation=cv2.INTER_AREA)
-    kps_half = FAST_DETECTOR_320.detect(gray_half, None)
+    kps_half = FAST_DETECTOR_HALF.detect(gray_half, None)
     n_kps_half = len(kps_half)
     feats["fast_keypoints_half"] = float(n_kps_half / (gray_half.shape[0] * gray_half.shape[1]))
     feats["keypoint_loss_ratio"] = float(1.0 - n_kps_half / (n_kps_full + 1e-8))

@@ -7,8 +7,10 @@ echo "=== ECHO Bellevue Pod Setup ==="
 cd /workspace
 
 # ── Dependencies ──
+# Don't install torch/torchvision — RunPod template has CUDA-matched versions.
+# pip installing them would overwrite with CPU-only builds.
 pip install -q ultralytics opencv-python-headless gdown pandas numpy \
-    scikit-learn xgboost scipy torch torchvision
+    scikit-learn xgboost scipy
 
 # ── Clone repo ──
 if [ ! -d "autosearch" ]; then
