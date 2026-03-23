@@ -4,9 +4,9 @@
 Processes 5 traffic camera intersections from the Bellevue Traffic Video Dataset.
 For each intersection:
   1. Extract frames at 2fps from each video file
-  2. Run YOLO11n@320, YOLO11m@640, YOLO11x@640
-  3. Greedy IoU matching → fn_nano, fn_medium per frame
-  4. Extract spatial features (65 original + 8 new temporal/detector features)
+  2. Run YOLO11n@640, YOLO11s@640, YOLO11m@640, YOLO11x@960 (ground truth)
+  3. Greedy IoU matching → fn_nano, fn_small, fn_medium per frame
+  4. Extract spatial features (65 original + 10 new temporal/detector features)
   5. Output per-intersection CSVs
 
 Checkpoints after each video file — safe to interrupt and resume.
@@ -615,6 +615,7 @@ def process_intersection(intersection_name):
     from ultralytics import YOLO
     print("  Loading YOLO models ...")
     nano_model = YOLO("yolo11n.pt")
+    small_model = YOLO("yolo11s.pt")
     medium_model = YOLO("yolo11m.pt")
     x_model = YOLO("yolo11x.pt")
 
@@ -641,12 +642,14 @@ def process_intersection(intersection_name):
             continue
 
         # Phase 2: YOLO inference
-        print(f"    Running YOLO11n@320 ...", flush=True)
-        nano_dets = run_yolo_on_frames(frame_files, nano_model, 320)
+        print(f"    Running YOLO11n@640 ...", flush=True)
+        nano_dets = run_yolo_on_frames(frame_files, nano_model, 640)
+        print(f"    Running YOLO11s@640 ...", flush=True)
+        small_dets = run_yolo_on_frames(frame_files, small_model, 640)
         print(f"    Running YOLO11m@640 ...", flush=True)
         medium_dets = run_yolo_on_frames(frame_files, medium_model, 640)
-        print(f"    Running YOLO11x@640 ...", flush=True)
-        x_dets = run_yolo_on_frames(frame_files, x_model, 640)
+        print(f"    Running YOLO11x@960 ...", flush=True)
+        x_dets = run_yolo_on_frames(frame_files, x_model, 960)
 
         # Phase 3+4: Matching + Feature extraction
         print(f"    Matching + feature extraction ...", flush=True)
@@ -660,12 +663,14 @@ def process_intersection(intersection_name):
             if bgr is None:
                 continue
 
-            # Match nano and medium vs x
+            # Match nano, small, and medium vs x
             nano_boxes = nano_dets[i]["boxes"]
+            small_boxes = small_dets[i]["boxes"]
             medium_boxes = medium_dets[i]["boxes"]
             x_boxes = x_dets[i]["boxes"]
 
             n_tp, n_fp, n_fn, _ = greedy_match(nano_boxes, x_boxes)
+            s_tp, s_fp, s_fn, _ = greedy_match(small_boxes, x_boxes)
             m_tp, m_fp, m_fn, _ = greedy_match(medium_boxes, x_boxes)
 
             det_record = {
@@ -674,6 +679,8 @@ def process_intersection(intersection_name):
                 "frame_id": global_fid,
                 "fn_nano": n_fn, "nano_tp": n_tp, "nano_fp": n_fp,
                 "nano_count": len(nano_boxes),
+                "fn_small": s_fn, "small_tp": s_tp, "small_fp": s_fp,
+                "small_count": len(small_boxes),
                 "fn_medium": m_fn, "medium_tp": m_tp, "medium_fp": m_fp,
                 "medium_count": len(medium_boxes),
                 "x_count": len(x_boxes),
@@ -688,10 +695,13 @@ def process_intersection(intersection_name):
             feats["video"] = vname
             feats["frame_id"] = global_fid
             feats["fn_nano"] = n_fn
+            feats["fn_small"] = s_fn
             feats["fn_medium"] = m_fn
             feats["x_count"] = len(x_boxes)
             feats["nano_tp"] = n_tp
             feats["nano_fp"] = n_fp
+            feats["small_tp"] = s_tp
+            feats["small_fp"] = s_fp
             feats["medium_tp"] = m_tp
             feats["medium_fp"] = m_fp
             all_feat_records.append(feats)

@@ -38,10 +38,13 @@ NEW_FEATURES = [
     # SSIM scene change
     "ssim_vs_prev",  # SSIM between current and previous frame
     # Detector-derived (from YOLO11n — "free" since we run it anyway)
-    "det_confidence_mean",       # mean detection confidence
-    "det_spatial_dispersion",    # std of bbox centroids
-    "det_small_object_ratio",    # proportion of small detections
+    "det_confidence_mean",       # mean detection confidence (nano)
+    "det_spatial_dispersion",    # std of bbox centroids (nano)
+    "det_small_object_ratio",    # proportion of small detections (nano)
     "det_count_nano",            # raw detection count from nano
+    # Detector-derived (from YOLO11s)
+    "det_count_small",           # raw detection count from small
+    "det_confidence_small",      # mean detection confidence (small)
 ]
 
 # Combined full feature set

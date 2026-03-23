@@ -669,6 +669,8 @@ def main():
     # ═════════════════════════════════════════════════════════════
     # MODEL 4: EvidentialLSTM (NIG loss, uncertainty)
     # ═════════════════════════════════════════════════════════════
+    # Single seed for evidential: NIG training is ~3x slower than MSE,
+    # multi-seed would exceed the 5-min-per-experiment budget.
     print("\n  ── EvidentialLSTM ──", file=sys.stderr)
     random.seed(42)
     torch.manual_seed(42)
@@ -693,7 +695,7 @@ def main():
           f"unc_sep={evid_m_cross['unc_separation']:.4f}", file=sys.stderr)
 
     # ═════════════════════════════════════════════════════════════
-    # PICK BEST by mse_within
+    # PICK BEST by mse_within, subject to cls_trans > 0.50
     # ═════════════════════════════════════════════════════════════
     candidates = [
         ("LSTM", lstm_m_within, lstm_m_cross, lstm_m_combined),
@@ -702,8 +704,17 @@ def main():
         ("EvidentialLSTM", evid_m_within, evid_m_cross, evid_m_combined),
     ]
 
+    # Filter: cls_trans > 0.50 on both within and cross val sets
+    valid = [c for c in candidates
+             if c[1]["cls_trans_acc"] > 0.50 and c[2]["cls_trans_acc"] > 0.50]
+    if not valid:
+        # Fallback: pick from all if none pass the filter
+        print("  WARNING: No model passed cls_trans > 0.50, picking best MSE anyway",
+              file=sys.stderr)
+        valid = candidates
+
     best_name, best_within, best_cross, best_combined = min(
-        candidates, key=lambda x: x[1]["mse"])
+        valid, key=lambda x: x[1]["mse"])
 
     elapsed = time.time() - t0
 
@@ -732,8 +743,11 @@ def main():
         "t2": round(t2, 4),
     }
 
-    # RESULT LINE (best model)
-    result_parts = [
+    # RESULT LINE (best model) — fixed fields for consistent parsing
+    unc_within = best_within.get("unc_separation", 0.0)
+    unc_cross = best_cross.get("unc_separation", 0.0)
+
+    print("\t".join([
         "RESULT",
         f"model={best_name}",
         f"mse_within={best_within['mse']:.6f}",
@@ -745,16 +759,12 @@ def main():
         f"cls_acc_cross={best_cross['cls_acc']:.6f}",
         f"cls_trans_within={best_within['cls_trans_acc']:.6f}",
         f"cls_trans_cross={best_cross['cls_trans_acc']:.6f}",
-    ]
-    if best_name == "EvidentialLSTM":
-        result_parts.append(f"unc_sep_within={best_within['unc_separation']:.6f}")
-        result_parts.append(f"unc_sep_cross={best_cross['unc_separation']:.6f}")
-    result_parts.extend([
+        f"unc_sep_within={unc_within:.6f}",
+        f"unc_sep_cross={unc_cross:.6f}",
         f"n_within={len(y_within)}",
         f"n_cross={len(y_cross)}",
         f"config={json.dumps(config_summary)}",
-    ])
-    print("\t".join(result_parts))
+    ]))
 
 
 if __name__ == "__main__":
