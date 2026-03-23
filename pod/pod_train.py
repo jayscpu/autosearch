@@ -582,6 +582,11 @@ def main():
     print(f"  Windows: train={len(y_train)}, within={len(y_within)}, "
           f"cross={len(y_cross)}", file=sys.stderr)
 
+    if len(y_within) == 0 or len(y_cross) == 0:
+        print("ERROR: Empty val set. Check data or window/horizon settings.",
+              file=sys.stderr)
+        sys.exit(1)
+
     # Difficulty thresholds from training data
     t1 = float(np.percentile(y_train.flatten(), CONFIG["t1_percentile"]))
     t2 = float(np.percentile(y_train.flatten(), CONFIG["t2_percentile"]))

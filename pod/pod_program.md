@@ -31,9 +31,9 @@ autosearch/pod/
 
 ## Experimental Design
 
-**Training set:** Temporal-split train portions of intersections 1+2
-**Within-camera val:** Temporal-split val portions of intersections 1+2
-**Cross-camera val:** All of intersection 3
+**Training set:** Temporal-split train portions of intersections 1, 2, 4, 5
+**Within-camera val:** Temporal-split val portions of intersections 1, 2, 4, 5
+**Cross-camera val:** All of intersection 3 (Bellevue_150th_SE38th)
 **Combined val:** Within + Cross combined
 
 The temporal split is at 60% of each intersection's frames (by frame_id).
@@ -84,11 +84,11 @@ test.
 
 ### Features
 - Start with top-35 Spearman features from classification search (proven best)
-- Also try all 65, all 73, top-20, top-25, top-30, top-40
+- Also try all 65, all 75, top-20, top-25, top-30, top-40
 - The optimal subset for regression may differ from classification
 
 ### NIG Hyperparameters (evidential mode, HIGH PRIORITY)
-- λ₁ (evidence regularizer weight): {0.01, 0.05, 0.1, 0.25, 0.5, 1.0}
+- λ₁ (evidence regularizer weight): {0.01, 0.05, 0.1, 0.25, 0.3, 0.5, 1.0}
 - These control the tradeoff between accuracy and uncertainty calibration
 - Too high λ₁ → model becomes uncertain about everything
 - Too low λ₁ → model is overconfident, uncertainty doesn't separate
@@ -115,9 +115,9 @@ test.
 - Gradient clipping: {0.5, 1.0, 2.0}
 
 ### Cross-camera generalization
-- Feature set: original 65 vs all 73 (with new temporal/detector features)
+- Feature set: original 65 vs all 75 (with new temporal/detector features)
 - Cross-camera calibration: does fine-tuning on 30min of new camera help?
-- Multi-intersection training: does training on 2 cameras beat 1?
+- Training already uses 4 cameras; try subsets (2 or 3) to measure impact
 
 ## Experiment Protocol
 
