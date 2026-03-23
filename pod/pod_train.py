@@ -6,9 +6,11 @@ Loads pre-extracted features, trains on intersections 1+2, evaluates on:
   2. Cross-camera val (unseen intersection 3)
   3. Combined val
 
-Two model modes:
-  - "plain": LSTM with MSE loss + RF regressor, pick best
-  - "evidential": Evidential LSTM with NIG loss (uncertainty quantification)
+Trains 4 models every run, picks the best by mse_within:
+  1. LSTM — MSE loss, multi-seed ensemble
+  2. RF — RandomForestRegressor on summary features
+  3. LSTM+RF — averaged predictions from 1 and 2
+  4. EvidentialLSTM — NIG loss with uncertainty quantification
 
 Prints RESULT line parsed by the agent.
 """
@@ -47,9 +49,6 @@ CONFIG = {
     # ── Target ──
     "target": "miss_rate",
 
-    # ── Model mode: "plain" or "evidential" ──
-    "model_mode": "evidential",
-
     # ── Windowing ──
     "window": 30,
     "horizon": 30,
@@ -65,14 +64,14 @@ CONFIG = {
     "test_intersection": "Bellevue_150th_SE38th",
     "train_fraction": 0.6,
 
-    # ── NIG Loss Hyperparameters (evidential mode only) ──
+    # ── NIG Loss Hyperparameters (EvidentialLSTM) ──
     "lambda1": 0.3,           # evidence regularizer weight
 
     # ── Difficulty Thresholds (percentiles of training miss_rate) ──
     "t1_percentile": 10,      # easy/moderate boundary
     "t2_percentile": 85,      # moderate/hard boundary
 
-    # ── Architecture ──
+    # ── Architecture (shared by LSTM and EvidentialLSTM) ──
     "hidden_size": 128,
     "n_layers": 2,
     "dropout": 0.4,
@@ -84,9 +83,9 @@ CONFIG = {
     "max_epochs": 300,
     "patience": 40,
     "grad_clip": 1.0,
-    "seeds": [42, 123, 456],  # plain mode: ensemble over seeds
+    "seeds": [42, 123, 456],  # LSTM ensemble seeds
 
-    # ── RF (plain mode only) ──
+    # ── RF ──
     "rf_n_estimators": 500,
     "rf_max_depth": 20,
     "rf_min_samples_leaf": 10,
@@ -551,11 +550,9 @@ def main():
     H = CONFIG["horizon"]
     S = CONFIG["sub_window"]
     n_steps = H // S
-    mode = CONFIG["model_mode"]
 
     # Split
     train_df, within_val_df, cross_val_df = split_data(df)
-    print(f"  Mode: {mode}", file=sys.stderr)
     print(f"  Multi-step: horizon={H}, sub_window={S}, n_steps={n_steps}", file=sys.stderr)
     print(f"  Train: {len(train_df)} frames from {CONFIG['train_intersections']}",
           file=sys.stderr)
@@ -576,6 +573,10 @@ def main():
         cross_val_df, feature_cols, CONFIG["eval_stride"], scaler)
 
     n_feat = len(feature_cols)
+    y_within_mean = y_within.mean(axis=1)
+    y_cross_mean = y_cross.mean(axis=1)
+    y_combined_mean = np.concatenate([y_within_mean, y_cross_mean])
+
     print(f"  Windows: train={len(y_train)}, within={len(y_within)}, "
           f"cross={len(y_cross)}", file=sys.stderr)
 
@@ -585,149 +586,173 @@ def main():
     print(f"  Thresholds: t1={t1:.4f} (p{CONFIG['t1_percentile']}), "
           f"t2={t2:.4f} (p{CONFIG['t2_percentile']})", file=sys.stderr)
 
-    # ── EVIDENTIAL MODE ──
-    if mode == "evidential":
-        random.seed(42)
-        torch.manual_seed(42)
-        np.random.seed(42)
+    # ═════════════════════════════════════════════════════════════
+    # MODEL 1: LSTM (MSE loss, multi-seed ensemble)
+    # ═════════════════════════════════════════════════════════════
+    print("\n  ── LSTM ──", file=sys.stderr)
+    all_preds_within, all_preds_cross = [], []
+    for seed in CONFIG["seeds"]:
+        random.seed(seed)
+        torch.manual_seed(seed)
+        np.random.seed(seed)
         if torch.cuda.is_available():
-            torch.cuda.manual_seed_all(42)
-        model = train_evidential(X_train, y_train, X_within, y_within,
-                                 n_feat, n_steps, device)
-        m_within = eval_evidential(model, X_within, y_within, device, t1, t2)
-        m_cross = eval_evidential(model, X_cross, y_cross, device, t1, t2)
+            torch.cuda.manual_seed_all(seed)
+        model = train_plain(X_train, y_train, X_within, y_within,
+                            n_feat, n_steps, device)
+        with torch.no_grad():
+            pw = model(torch.from_numpy(X_within).to(device)).cpu().numpy()
+            pc = model(torch.from_numpy(X_cross).to(device)).cpu().numpy()
+        all_preds_within.append(pw)
+        all_preds_cross.append(pc)
 
-        # Combined
-        X_comb = np.concatenate([X_within, X_cross])
-        y_comb = np.concatenate([y_within, y_cross])
-        m_combined = eval_evidential(model, X_comb, y_comb, device, t1, t2)
+    lstm_within_pred = np.mean(all_preds_within, axis=0).mean(axis=1)
+    lstm_cross_pred = np.mean(all_preds_cross, axis=0).mean(axis=1)
 
-        best_name = "EvidentialLSTM"
-        best_within = m_within
-        best_cross = m_cross
-        best_combined = m_combined
+    lstm_m_within = eval_regression(y_within_mean, lstm_within_pred, t1, t2)
+    lstm_m_cross = eval_regression(y_cross_mean, lstm_cross_pred, t1, t2)
+    lstm_comb_pred = np.concatenate([lstm_within_pred, lstm_cross_pred])
+    lstm_m_combined = eval_regression(y_combined_mean, lstm_comb_pred, t1, t2)
 
-        print(f"  Evidential within: mse={m_within['mse']:.4f} "
-              f"cls_acc={m_within['cls_acc']:.3f} "
-              f"unc_sep={m_within['unc_separation']:.4f}", file=sys.stderr)
-        print(f"  Evidential cross:  mse={m_cross['mse']:.4f} "
-              f"cls_acc={m_cross['cls_acc']:.3f} "
-              f"unc_sep={m_cross['unc_separation']:.4f}", file=sys.stderr)
+    print(f"  LSTM within: mse={lstm_m_within['mse']:.4f} "
+          f"cls_acc={lstm_m_within['cls_acc']:.3f}", file=sys.stderr)
+    print(f"  LSTM cross:  mse={lstm_m_cross['mse']:.4f} "
+          f"cls_acc={lstm_m_cross['cls_acc']:.3f}", file=sys.stderr)
 
-    # ── PLAIN MODE ──
-    else:
-        # Train LSTM ensemble
-        all_preds_within = []
-        all_preds_cross = []
-        for seed in CONFIG["seeds"]:
-            random.seed(seed)
-            torch.manual_seed(seed)
-            np.random.seed(seed)
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(seed)
-            model = train_plain(X_train, y_train, X_within, y_within,
-                                n_feat, n_steps, device)
-            with torch.no_grad():
-                pw = model(torch.from_numpy(X_within).to(device)).cpu().numpy()
-                pc = model(torch.from_numpy(X_cross).to(device)).cpu().numpy()
-            all_preds_within.append(pw)
-            all_preds_cross.append(pc)
+    # ═════════════════════════════════════════════════════════════
+    # MODEL 2: RF (regressor on summary features)
+    # ═════════════════════════════════════════════════════════════
+    print("\n  ── RF ──", file=sys.stderr)
+    X_train_rf = build_rf_features(X_train)
+    X_within_rf = build_rf_features(X_within)
+    X_cross_rf = build_rf_features(X_cross)
+    y_train_mean = y_train.mean(axis=1)
 
-        # Average predictions across seeds
-        lstm_within_pred = np.mean(all_preds_within, axis=0).mean(axis=1)
-        lstm_cross_pred = np.mean(all_preds_cross, axis=0).mean(axis=1)
+    rf = RandomForestRegressor(
+        n_estimators=CONFIG["rf_n_estimators"],
+        max_depth=CONFIG["rf_max_depth"],
+        min_samples_leaf=CONFIG["rf_min_samples_leaf"],
+        max_features="sqrt", n_jobs=-1, random_state=42)
+    rf.fit(X_train_rf, y_train_mean)
 
-        y_within_mean = y_within.mean(axis=1)
-        y_cross_mean = y_cross.mean(axis=1)
+    rf_within_pred = rf.predict(X_within_rf)
+    rf_cross_pred = rf.predict(X_cross_rf)
 
-        lstm_m_within = eval_regression(y_within_mean, lstm_within_pred, t1, t2)
-        lstm_m_cross = eval_regression(y_cross_mean, lstm_cross_pred, t1, t2)
+    rf_m_within = eval_regression(y_within_mean, rf_within_pred, t1, t2)
+    rf_m_cross = eval_regression(y_cross_mean, rf_cross_pred, t1, t2)
+    rf_comb_pred = np.concatenate([rf_within_pred, rf_cross_pred])
+    rf_m_combined = eval_regression(y_combined_mean, rf_comb_pred, t1, t2)
 
-        print(f"  LSTM within: mse={lstm_m_within['mse']:.4f} "
-              f"cls_acc={lstm_m_within['cls_acc']:.3f}", file=sys.stderr)
-        print(f"  LSTM cross:  mse={lstm_m_cross['mse']:.4f} "
-              f"cls_acc={lstm_m_cross['cls_acc']:.3f}", file=sys.stderr)
+    print(f"  RF within:   mse={rf_m_within['mse']:.4f} "
+          f"cls_acc={rf_m_within['cls_acc']:.3f}", file=sys.stderr)
+    print(f"  RF cross:    mse={rf_m_cross['mse']:.4f} "
+          f"cls_acc={rf_m_cross['cls_acc']:.3f}", file=sys.stderr)
 
-        # Train RF regressor (predict step-averaged target)
-        X_train_rf = build_rf_features(X_train)
-        X_within_rf = build_rf_features(X_within)
-        X_cross_rf = build_rf_features(X_cross)
+    # ═════════════════════════════════════════════════════════════
+    # MODEL 3: LSTM+RF Ensemble (average predictions)
+    # ═════════════════════════════════════════════════════════════
+    print("\n  ── LSTM+RF ──", file=sys.stderr)
+    ens_within_pred = 0.5 * lstm_within_pred + 0.5 * rf_within_pred
+    ens_cross_pred = 0.5 * lstm_cross_pred + 0.5 * rf_cross_pred
 
-        y_train_mean = y_train.mean(axis=1)
+    ens_m_within = eval_regression(y_within_mean, ens_within_pred, t1, t2)
+    ens_m_cross = eval_regression(y_cross_mean, ens_cross_pred, t1, t2)
+    ens_comb_pred = np.concatenate([ens_within_pred, ens_cross_pred])
+    ens_m_combined = eval_regression(y_combined_mean, ens_comb_pred, t1, t2)
 
-        rf = RandomForestRegressor(
-            n_estimators=CONFIG["rf_n_estimators"],
-            max_depth=CONFIG["rf_max_depth"],
-            min_samples_leaf=CONFIG["rf_min_samples_leaf"],
-            max_features="sqrt", n_jobs=-1, random_state=42)
-        rf.fit(X_train_rf, y_train_mean)
+    print(f"  ENS within:  mse={ens_m_within['mse']:.4f} "
+          f"cls_acc={ens_m_within['cls_acc']:.3f}", file=sys.stderr)
+    print(f"  ENS cross:   mse={ens_m_cross['mse']:.4f} "
+          f"cls_acc={ens_m_cross['cls_acc']:.3f}", file=sys.stderr)
 
-        rf_within_pred = rf.predict(X_within_rf)
-        rf_cross_pred = rf.predict(X_cross_rf)
+    # ═════════════════════════════════════════════════════════════
+    # MODEL 4: EvidentialLSTM (NIG loss, uncertainty)
+    # ═════════════════════════════════════════════════════════════
+    print("\n  ── EvidentialLSTM ──", file=sys.stderr)
+    random.seed(42)
+    torch.manual_seed(42)
+    np.random.seed(42)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(42)
 
-        rf_m_within = eval_regression(y_within_mean, rf_within_pred, t1, t2)
-        rf_m_cross = eval_regression(y_cross_mean, rf_cross_pred, t1, t2)
+    evid_model = train_evidential(X_train, y_train, X_within, y_within,
+                                  n_feat, n_steps, device)
 
-        print(f"  RF within:   mse={rf_m_within['mse']:.4f} "
-              f"cls_acc={rf_m_within['cls_acc']:.3f}", file=sys.stderr)
-        print(f"  RF cross:    mse={rf_m_cross['mse']:.4f} "
-              f"cls_acc={rf_m_cross['cls_acc']:.3f}", file=sys.stderr)
+    evid_m_within = eval_evidential(evid_model, X_within, y_within, device, t1, t2)
+    evid_m_cross = eval_evidential(evid_model, X_cross, y_cross, device, t1, t2)
+    X_comb = np.concatenate([X_within, X_cross])
+    y_comb = np.concatenate([y_within, y_cross])
+    evid_m_combined = eval_evidential(evid_model, X_comb, y_comb, device, t1, t2)
 
-        # Pick best by within MSE
-        if lstm_m_within["mse"] <= rf_m_within["mse"]:
-            best_name = "LSTM"
-            best_within, best_cross = lstm_m_within, lstm_m_cross
-            comb_pred = np.concatenate([lstm_within_pred, lstm_cross_pred])
-        else:
-            best_name = "RF"
-            best_within, best_cross = rf_m_within, rf_m_cross
-            comb_pred = np.concatenate([rf_within_pred, rf_cross_pred])
+    print(f"  EVID within: mse={evid_m_within['mse']:.4f} "
+          f"cls_acc={evid_m_within['cls_acc']:.3f} "
+          f"unc_sep={evid_m_within['unc_separation']:.4f}", file=sys.stderr)
+    print(f"  EVID cross:  mse={evid_m_cross['mse']:.4f} "
+          f"cls_acc={evid_m_cross['cls_acc']:.3f} "
+          f"unc_sep={evid_m_cross['unc_separation']:.4f}", file=sys.stderr)
 
-        comb_true = np.concatenate([y_within_mean, y_cross_mean])
-        best_combined = eval_regression(comb_true, comb_pred, t1, t2)
+    # ═════════════════════════════════════════════════════════════
+    # PICK BEST by mse_within
+    # ═════════════════════════════════════════════════════════════
+    candidates = [
+        ("LSTM", lstm_m_within, lstm_m_cross, lstm_m_combined),
+        ("RF", rf_m_within, rf_m_cross, rf_m_combined),
+        ("LSTM+RF", ens_m_within, ens_m_cross, ens_m_combined),
+        ("EvidentialLSTM", evid_m_within, evid_m_cross, evid_m_combined),
+    ]
 
-        # No uncertainty in plain mode
-        best_within["unc_separation"] = 0.0
-        best_cross["unc_separation"] = 0.0
-        best_combined["unc_separation"] = 0.0
+    best_name, best_within, best_cross, best_combined = min(
+        candidates, key=lambda x: x[1]["mse"])
 
     elapsed = time.time() - t0
 
+    # Summary table
+    print(f"\n  {'Model':<18} {'MSE_w':>8} {'MSE_x':>8} {'cls_acc_w':>10} {'cls_acc_x':>10}",
+          file=sys.stderr)
+    print(f"  {'-'*56}", file=sys.stderr)
+    for name, mw, mx, _ in candidates:
+        marker = " *" if name == best_name else ""
+        print(f"  {name:<18} {mw['mse']:>8.4f} {mx['mse']:>8.4f} "
+              f"{mw['cls_acc']:>10.3f} {mx['cls_acc']:>10.3f}{marker}",
+              file=sys.stderr)
+    print(f"\n  Best: {best_name}  Time: {elapsed:.1f}s", file=sys.stderr)
+
     config_summary = {
         "model": best_name,
-        "mode": mode,
         "n_features": n_feat,
         "window": CONFIG["window"],
         "horizon": CONFIG["horizon"],
         "sub_window": CONFIG["sub_window"],
         "n_steps": n_steps,
+        "lambda1": CONFIG["lambda1"],
         "train_ints": CONFIG["train_intersections"],
         "test_int": CONFIG["test_intersection"],
         "t1": round(t1, 4),
         "t2": round(t2, 4),
     }
-    if mode == "evidential":
-        config_summary["lambda1"] = CONFIG["lambda1"]
 
-    print(f"\n  Best: {best_name}", file=sys.stderr)
-    print(f"  Time: {elapsed:.1f}s", file=sys.stderr)
-
-    # RESULT LINE
-    print(f"RESULT\t"
-          f"mse_within={best_within['mse']:.6f}\t"
-          f"mse_cross={best_cross['mse']:.6f}\t"
-          f"mse_combined={best_combined['mse']:.6f}\t"
-          f"mae_within={best_within['mae']:.6f}\t"
-          f"mae_cross={best_cross['mae']:.6f}\t"
-          f"cls_acc_within={best_within['cls_acc']:.6f}\t"
-          f"cls_acc_cross={best_cross['cls_acc']:.6f}\t"
-          f"cls_trans_within={best_within['cls_trans_acc']:.6f}\t"
-          f"cls_trans_cross={best_cross['cls_trans_acc']:.6f}\t"
-          f"unc_sep_within={best_within['unc_separation']:.6f}\t"
-          f"unc_sep_cross={best_cross['unc_separation']:.6f}\t"
-          f"n_within={len(y_within)}\t"
-          f"n_cross={len(y_cross)}\t"
-          f"config={json.dumps(config_summary)}")
+    # RESULT LINE (best model)
+    result_parts = [
+        "RESULT",
+        f"model={best_name}",
+        f"mse_within={best_within['mse']:.6f}",
+        f"mse_cross={best_cross['mse']:.6f}",
+        f"mse_combined={best_combined['mse']:.6f}",
+        f"mae_within={best_within['mae']:.6f}",
+        f"mae_cross={best_cross['mae']:.6f}",
+        f"cls_acc_within={best_within['cls_acc']:.6f}",
+        f"cls_acc_cross={best_cross['cls_acc']:.6f}",
+        f"cls_trans_within={best_within['cls_trans_acc']:.6f}",
+        f"cls_trans_cross={best_cross['cls_trans_acc']:.6f}",
+    ]
+    if best_name == "EvidentialLSTM":
+        result_parts.append(f"unc_sep_within={best_within['unc_separation']:.6f}")
+        result_parts.append(f"unc_sep_cross={best_cross['unc_separation']:.6f}")
+    result_parts.extend([
+        f"n_within={len(y_within)}",
+        f"n_cross={len(y_cross)}",
+        f"config={json.dumps(config_summary)}",
+    ])
+    print("\t".join(result_parts))
 
 
 if __name__ == "__main__":

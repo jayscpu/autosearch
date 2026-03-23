@@ -6,11 +6,12 @@ Multi-intersection generalization experiment for ECHO. Uses 5 Bellevue traffic
 camera intersections (~101 hours total). Tests whether spatial features trained
 on intersections 1+2 generalize to unseen intersection 3.
 
-Two model modes:
-- **Plain regression:** LSTM (MSE loss) + RF regressor, pick best by within-MSE
-- **Evidential regression:** Evidential LSTM with NIG loss — predicts continuous
-  miss_rate with calibrated aleatoric/epistemic uncertainty, converts to 3-class
-  probabilities via Student-t CDF for the MPC controller
+Every run trains 4 models and picks the best by `mse_within`:
+1. **LSTM** — MSE loss, multi-seed ensemble (3 seeds)
+2. **RF** — RandomForestRegressor on summary features (mean/std/slope)
+3. **LSTM+RF** — averaged predictions from 1 and 2
+4. **EvidentialLSTM** — NIG loss with uncertainty quantification, Student-t CDF
+   conversion to 3-class probabilities for the MPC controller
 
 Data is pre-extracted by `pod_pipeline.py`. Work only with the CSVs.
 
@@ -75,10 +76,11 @@ is held out, fine-tuning calibration tests.
 
 ## Search Space
 
-### Model Mode
-- Both modes are equal — search each independently
-- Plain: LSTM (MSE) + RF regressor, evaluated on same metrics
-- Evidential: EvidentialLSTM (NIG loss), additionally provides uncertainty
+### Models
+- All 4 models run every experiment — no mode switching
+- The best model is selected automatically by mse_within
+- Hyperparameter changes affect all models equally (architecture, features, etc.)
+- λ₁ only affects EvidentialLSTM; RF params only affect RF
 
 ### Features
 - Start with top-35 Spearman features from classification search (proven best)
@@ -120,7 +122,7 @@ is held out, fine-tuning calibration tests.
 ## Experiment Protocol
 
 1. Read pod_train.py fully before starting
-2. Run BOTH baselines first: evidential mode, then plain mode. Record both.
+2. Run baseline first (all 4 models train every run). Record in pod_results.tsv.
 3. ONE change at a time
 4. Run the experiment, parse the RESULT line
 5. Log to pod_results.tsv
@@ -132,23 +134,15 @@ is held out, fine-tuning calibration tests.
 
 ## Priority Order
 
-Run both modes in parallel — each mode gets its own search track.
-
-**Both modes:**
-1. Establish baselines (evidential + plain, top-35 features, default config)
-2. Sweep difficulty thresholds t₁, t₂
-3. Architecture (hidden size, layers, dropout)
-4. Training hyperparams (LR, batch size)
-5. Feature subsets
-6. Window/horizon/sub_window
-7. Combine best settings
-
-**Evidential-specific (interleave with above):**
-- Sweep λ₁ (evidence regularizer): {0.01, 0.05, 0.1, 0.25, 0.5, 1.0}
-
-**Plain-specific (interleave with above):**
-- Sweep RF hyperparams (n_estimators, max_depth, min_samples_leaf)
-- Sweep number of ensemble seeds
+1. Establish baseline (all 4 models run, default config)
+2. Sweep λ₁ (evidence regularizer): {0.01, 0.05, 0.1, 0.25, 0.5, 1.0}
+3. Sweep difficulty thresholds t₁, t₂
+4. Architecture (hidden size, layers, dropout)
+5. Training hyperparams (LR, batch size)
+6. Feature subsets
+7. Window/horizon/sub_window
+8. RF hyperparams (n_estimators, max_depth, min_samples_leaf)
+9. Combine best settings
 
 ## CRASH SAFETY
 
