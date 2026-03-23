@@ -64,15 +64,15 @@ n_steps=5.
 
 | # | Intersection | Role |
 |---|---|---|
-| 1 | Bellevue_150th_Eastgate | Training |
-| 2 | Bellevue_150th_Newport | Training |
-| 3 | Bellevue_150th_SE38th | Cross-camera test |
-| 4 | Bellevue_Bellevue_NE8th | Reserved for later |
-| 5 | Bellevue_116th_NE12th | Reserved for later |
+| 1 | Bellevue_150th_Eastgate | Training (60% train / 40% within-val) |
+| 2 | Bellevue_150th_Newport | Training (60% train / 40% within-val) |
+| 3 | Bellevue_150th_SE38th | Cross-camera test (100% held out) |
+| 4 | Bellevue_Bellevue_NE8th | Training (60% train / 40% within-val) |
+| 5 | Bellevue_116th_NE12th | Training (60% train / 40% within-val) |
 
-Intersections 4+5 are downloaded and extracted but not used in the initial
-experiments. Future uses: train on 3 instead of 2, rotate which intersection
-is held out, fine-tuning calibration tests.
+Intersection 3 is the cross-camera held-out test — same 150th corridor as
+intersections 1+2, making it a realistic "new camera, same road" generalization
+test.
 
 ## Search Space
 

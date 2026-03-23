@@ -60,6 +60,8 @@ CONFIG = {
     "train_intersections": [
         "Bellevue_150th_Eastgate",
         "Bellevue_150th_Newport",
+        "Bellevue_Bellevue_NE8th",
+        "Bellevue_116th_NE12th",
     ],
     "test_intersection": "Bellevue_150th_SE38th",
     "train_fraction": 0.6,
