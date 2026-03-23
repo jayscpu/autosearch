@@ -545,7 +545,18 @@ def extract_detector_features(nano_det):
     return feats
 
 
-def extract_all_features(bgr, prev_gray, seq_name, nano_det=None):
+def extract_small_detector_features(small_det):
+    """Features derived from YOLO11s detections."""
+    feats = {}
+    boxes = small_det["boxes"]
+    confs = small_det["confs"]
+    n = len(boxes)
+    feats["det_count_small"] = float(n)
+    feats["det_confidence_small"] = float(confs.mean()) if n > 0 else 0.0
+    return feats
+
+
+def extract_all_features(bgr, prev_gray, seq_name, nano_det=None, small_det=None):
     """Extract all features for a single frame."""
     gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
     gray_f = gray.astype(np.float64)
@@ -565,6 +576,10 @@ def extract_all_features(bgr, prev_gray, seq_name, nano_det=None):
     else:
         feats.update({"det_count_nano": 0.0, "det_confidence_mean": 0.0,
                       "det_spatial_dispersion": 0.0, "det_small_object_ratio": 0.0})
+    if small_det is not None:
+        feats.update(extract_small_detector_features(small_det))
+    else:
+        feats.update({"det_count_small": 0.0, "det_confidence_small": 0.0})
 
     return feats, gray
 
@@ -688,7 +703,7 @@ def process_intersection(intersection_name):
             all_det_records.append(det_record)
 
             # Extract features
-            feats, gray = extract_all_features(bgr, prev_gray, seq_name, nano_dets[i])
+            feats, gray = extract_all_features(bgr, prev_gray, seq_name, nano_dets[i], small_dets[i])
             prev_gray = gray
 
             feats["sequence"] = intersection_name
