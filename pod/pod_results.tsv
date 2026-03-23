@@ -1,1 +1,1 @@
-commit	model	mse_within	mse_cross	mse_combined	mae_within	mae_cross	cls_acc_within	cls_acc_cross	cls_trans_within	cls_trans_cross	unc_sep_within	unc_sep_cross	n_within	n_cross	status	description
+model	mse_within	mse_cross	mse_combined	mae_within	mae_cross	cls_acc_within	cls_acc_cross	cls_trans_within	cls_trans_cross	unc_sep_within	unc_sep_cross	n_within	n_cross	config	status	description

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ECHO Bellevue — Multi-intersection regression + evidential regression.
 
-Loads pre-extracted features, trains on intersections 1+2, evaluates on:
+Loads pre-extracted features, trains on intersections 1, 2, 4, 5, evaluates on:
   1. Within-camera val (temporal split of train intersections)
   2. Cross-camera val (unseen intersection 3)
   3. Combined val
@@ -64,7 +64,8 @@ CONFIG = {
         "Bellevue_116th_NE12th",
     ],
     "test_intersection": "Bellevue_150th_SE38th",
-    "train_fraction": 0.6,
+    "train_fraction": 0.50,
+    "earlystop_fraction": 0.60,   # cumulative: 50-60% = early-stop, 60-100% = within-val
 
     # ── NIG Loss Hyperparameters (EvidentialLSTM) ──
     "lambda1": 0.3,           # evidence regularizer weight
@@ -124,25 +125,34 @@ def get_target_column():
 # ═══════════════════════════════════════════════════════════════════
 
 def split_data(df):
-    """Split into train, within-camera val, and cross-camera val."""
+    """Split into train, early-stop, within-camera val, and cross-camera val.
+
+    Per training intersection (temporally ordered):
+      [0 .. 50%)   → train
+      [50% .. 60%)  → early-stop (used only for checkpoint selection)
+      [60% .. 100%] → within-camera val (never seen during training)
+    Held-out intersection → cross-camera val.
+    """
     train_ints = CONFIG["train_intersections"]
     test_int = CONFIG["test_intersection"]
-    frac = CONFIG["train_fraction"]
 
-    train_dfs = []
-    within_val_dfs = []
+    train_dfs, earlystop_dfs, within_val_dfs = [], [], []
     for int_name in train_ints:
         sub = df[df["sequence"] == int_name].sort_values("frame_id")
-        cutoff_idx = int(len(sub) * frac)
-        cutoff_fid = sub.iloc[cutoff_idx]["frame_id"]
-        train_dfs.append(sub[sub["frame_id"] <= cutoff_fid])
-        within_val_dfs.append(sub[sub["frame_id"] > cutoff_fid])
+        n = len(sub)
+        train_end = int(n * CONFIG["train_fraction"])
+        earlystop_end = int(n * CONFIG["earlystop_fraction"])
+
+        train_dfs.append(sub.iloc[:train_end])
+        earlystop_dfs.append(sub.iloc[train_end:earlystop_end])
+        within_val_dfs.append(sub.iloc[earlystop_end:])
 
     train_df = pd.concat(train_dfs, ignore_index=True)
+    earlystop_df = pd.concat(earlystop_dfs, ignore_index=True)
     within_val_df = pd.concat(within_val_dfs, ignore_index=True)
     cross_val_df = df[df["sequence"] == test_int].copy()
 
-    return train_df, within_val_df, cross_val_df
+    return train_df, earlystop_df, within_val_df, cross_val_df
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -158,12 +168,22 @@ def build_windows(df, feature_cols, stride, scaler):
     target_col = get_target_column()
 
     X_list, y_list = [], []
+    # Track the first index of each video group so transition_accuracy can
+    # skip comparisons at video boundaries (those pairs aren't temporal neighbours)
+    boundary_indices = set()
 
-    for _, sdf in df.groupby("sequence"):
+    # Group by sequence AND video to avoid windows spanning video boundaries
+    # (temporal features like optical flow reset to 0 at each video start)
+    group_cols = ["sequence", "video"] if "video" in df.columns else ["sequence"]
+    for _, sdf in df.groupby(group_cols):
         sdf = sdf.sort_values("frame_id").reset_index(drop=True)
         n = len(sdf)
         if n < total_need:
             continue
+
+        # Mark the start of this group as a boundary (except the very first group)
+        if len(X_list) > 0:
+            boundary_indices.add(len(X_list))
 
         feat_vals = scaler.transform(sdf[feature_cols].values)
         target_vals = sdf[target_col].values
@@ -182,7 +202,7 @@ def build_windows(df, feature_cols, stride, scaler):
 
     X = np.array(X_list, dtype=np.float32)
     y = np.array(y_list, dtype=np.float32)  # shape: (N, n_steps)
-    return X, y
+    return X, y, boundary_indices
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -282,7 +302,9 @@ def nig_loss(gamma, nu, alpha, beta, y):
            + torch.lgamma(alpha) - torch.lgamma(alpha + 0.5))
 
     error = torch.abs(y - gamma)
-    evidence = 2.0 * nu + alpha
+    # Penalize only learned evidence: subtract the +1.0 offset baked into alpha
+    # so the regularizer doesn't introduce a hidden MAE term (Amini et al. 2020)
+    evidence = 2.0 * nu + (alpha - 1.0)
     reg_evidence = error * evidence
 
     loss = nll + CONFIG["lambda1"] * reg_evidence
@@ -423,7 +445,6 @@ def train_evidential(X_train, y_train, X_val, y_val, n_feat, n_steps, device):
         with torch.no_grad():
             gamma, nu, alpha, beta = model(val_x)
             val_loss = nig_loss(gamma, nu, alpha, beta, val_y).item()
-        scheduler.step()
 
         if val_loss < best_val_loss and not np.isnan(val_loss):
             best_val_loss = val_loss
@@ -431,6 +452,9 @@ def train_evidential(X_train, y_train, X_val, y_val, n_feat, n_steps, device):
             patience_ctr = 0
         else:
             patience_ctr += 1
+
+        if not np.isnan(val_loss):
+            scheduler.step()
 
         if epoch % 20 == 0:
             print(f"  Epoch {epoch:3d}: val_loss={val_loss:.4f}"
@@ -450,10 +474,18 @@ def train_evidential(X_train, y_train, X_val, y_val, n_feat, n_steps, device):
 # EVALUATION
 # ═══════════════════════════════════════════════════════════════════
 
-def transition_accuracy_3class(y_true, y_pred):
-    """Accuracy on frames where the true 3-class label changes."""
+def transition_accuracy_3class(y_true, y_pred, boundary_indices=None):
+    """Accuracy on windows where the true 3-class label changes.
+
+    Skips comparisons at video boundary indices where consecutive windows
+    come from different videos and are not temporally related.
+    """
+    if boundary_indices is None:
+        boundary_indices = set()
     correct, total = 0, 0
     for j in range(1, len(y_true)):
+        if j in boundary_indices:
+            continue
         if y_true[j] != y_true[j - 1]:
             total += 1
             if y_pred[j] == y_true[j]:
@@ -469,7 +501,7 @@ def to_3class(y_continuous, t1, t2):
     return classes
 
 
-def eval_regression(y_true_mean, y_pred_mean, t1, t2):
+def eval_regression(y_true_mean, y_pred_mean, t1, t2, boundary_indices=None):
     """Evaluate regression predictions (plain mode or evidential gamma)."""
     mse = float(mean_squared_error(y_true_mean, y_pred_mean))
     mae = float(mean_absolute_error(y_true_mean, y_pred_mean))
@@ -477,13 +509,42 @@ def eval_regression(y_true_mean, y_pred_mean, t1, t2):
     true_cls = to_3class(y_true_mean, t1, t2)
     pred_cls = to_3class(y_pred_mean, t1, t2)
     cls_acc = float(np.mean(pred_cls == true_cls))
-    cls_trans, n_trans = transition_accuracy_3class(true_cls, pred_cls)
+    cls_trans, n_trans = transition_accuracy_3class(true_cls, pred_cls, boundary_indices)
 
     return {"mse": mse, "mae": mae, "cls_acc": cls_acc,
             "cls_trans_acc": cls_trans, "n_trans": n_trans}
 
 
-def eval_evidential(model, X, y, device, t1, t2):
+def combine_metrics(m_within, m_cross, n_within, n_cross):
+    """Combine within/cross metrics via weighted average.
+
+    Avoids concatenating arrays, which would create a spurious class
+    transition at the boundary between the two evaluation sets.
+    """
+    n_total = n_within + n_cross
+    combined = {}
+    for key in ("mse", "mae", "cls_acc"):
+        combined[key] = (m_within[key] * n_within + m_cross[key] * n_cross) / n_total
+    # Transition accuracy: weight by number of transitions, not samples
+    nw = m_within.get("n_trans", 0)
+    nc = m_cross.get("n_trans", 0)
+    if nw + nc > 0:
+        combined["cls_trans_acc"] = (
+            m_within["cls_trans_acc"] * nw + m_cross["cls_trans_acc"] * nc
+        ) / (nw + nc)
+    else:
+        combined["cls_trans_acc"] = 0.0
+    combined["n_trans"] = nw + nc
+    # Propagate uncertainty separation if present
+    if "unc_separation" in m_within:
+        combined["unc_separation"] = (
+            m_within["unc_separation"] * n_within
+            + m_cross["unc_separation"] * n_cross
+        ) / n_total
+    return combined
+
+
+def eval_evidential(model, X, y, device, t1, t2, boundary_indices=None):
     """Full evidential evaluation: regression + uncertainty + 3-class via Student-t CDF."""
     val_x = torch.from_numpy(X).to(device)
     n_steps = y.shape[1]
@@ -515,7 +576,7 @@ def eval_evidential(model, X, y, device, t1, t2):
     true_cls = to_3class(y_mean, t1, t2)
 
     cls_acc = float(np.mean(pred_cls == true_cls))
-    cls_trans, n_trans = transition_accuracy_3class(true_cls, pred_cls)
+    cls_trans, n_trans = transition_accuracy_3class(true_cls, pred_cls, boundary_indices)
 
     # Uncertainty calibration
     correct_mask = (pred_cls == true_cls)
@@ -553,36 +614,47 @@ def main():
     S = CONFIG["sub_window"]
     n_steps = H // S
 
-    # Split
-    train_df, within_val_df, cross_val_df = split_data(df)
+    # Filter frames with no ground-truth detections BEFORE splitting so that
+    # the 50/10/40 split percentages reflect usable frames only and temporal
+    # contiguity within each video is maximally preserved.
+    before = len(df)
+    df = df[df["x_count"] > 0].reset_index(drop=True)
+    dropped = before - len(df)
+    if dropped:
+        print(f"  Filtered {dropped} x_count=0 frames before split", file=sys.stderr)
+
+    # Split (3-way from training intersections + held-out cross-camera)
+    train_df, earlystop_df, within_val_df, cross_val_df = split_data(df)
     print(f"  Multi-step: horizon={H}, sub_window={S}, n_steps={n_steps}", file=sys.stderr)
     print(f"  Train: {len(train_df)} frames from {CONFIG['train_intersections']}",
           file=sys.stderr)
+    print(f"  Early-stop: {len(earlystop_df)} frames", file=sys.stderr)
     print(f"  Within-val: {len(within_val_df)} frames", file=sys.stderr)
     print(f"  Cross-val: {len(cross_val_df)} frames from {CONFIG['test_intersection']}",
           file=sys.stderr)
 
-    # Scaler from training data only
+    # Scaler from training data only (not early-stop or val)
     scaler = StandardScaler()
     scaler.fit(train_df[feature_cols].values)
 
-    # Build windows
-    X_train, y_train = build_windows(
+    # Build windows for all 4 sets
+    X_train, y_train, _ = build_windows(
         train_df, feature_cols, CONFIG["train_stride"], scaler)
-    X_within, y_within = build_windows(
+    X_earlystop, y_earlystop, _ = build_windows(
+        earlystop_df, feature_cols, CONFIG["eval_stride"], scaler)
+    X_within, y_within, bnd_within = build_windows(
         within_val_df, feature_cols, CONFIG["eval_stride"], scaler)
-    X_cross, y_cross = build_windows(
+    X_cross, y_cross, bnd_cross = build_windows(
         cross_val_df, feature_cols, CONFIG["eval_stride"], scaler)
 
     n_feat = len(feature_cols)
     y_within_mean = y_within.mean(axis=1)
     y_cross_mean = y_cross.mean(axis=1)
-    y_combined_mean = np.concatenate([y_within_mean, y_cross_mean])
 
-    print(f"  Windows: train={len(y_train)}, within={len(y_within)}, "
-          f"cross={len(y_cross)}", file=sys.stderr)
+    print(f"  Windows: train={len(y_train)}, earlystop={len(y_earlystop)}, "
+          f"within={len(y_within)}, cross={len(y_cross)}", file=sys.stderr)
 
-    if len(y_within) == 0 or len(y_cross) == 0:
+    if len(y_earlystop) == 0 or len(y_within) == 0 or len(y_cross) == 0:
         print("ERROR: Empty val set. Check data or window/horizon settings.",
               file=sys.stderr)
         sys.exit(1)
@@ -604,7 +676,7 @@ def main():
         np.random.seed(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
-        model = train_plain(X_train, y_train, X_within, y_within,
+        model = train_plain(X_train, y_train, X_earlystop, y_earlystop,
                             n_feat, n_steps, device)
         with torch.no_grad():
             pw = model(torch.from_numpy(X_within).to(device)).cpu().numpy()
@@ -615,10 +687,10 @@ def main():
     lstm_within_pred = np.mean(all_preds_within, axis=0).mean(axis=1)
     lstm_cross_pred = np.mean(all_preds_cross, axis=0).mean(axis=1)
 
-    lstm_m_within = eval_regression(y_within_mean, lstm_within_pred, t1, t2)
-    lstm_m_cross = eval_regression(y_cross_mean, lstm_cross_pred, t1, t2)
-    lstm_comb_pred = np.concatenate([lstm_within_pred, lstm_cross_pred])
-    lstm_m_combined = eval_regression(y_combined_mean, lstm_comb_pred, t1, t2)
+    lstm_m_within = eval_regression(y_within_mean, lstm_within_pred, t1, t2, bnd_within)
+    lstm_m_cross = eval_regression(y_cross_mean, lstm_cross_pred, t1, t2, bnd_cross)
+    lstm_m_combined = combine_metrics(
+        lstm_m_within, lstm_m_cross, len(y_within), len(y_cross))
 
     print(f"  LSTM within: mse={lstm_m_within['mse']:.4f} "
           f"cls_acc={lstm_m_within['cls_acc']:.3f}", file=sys.stderr)
@@ -644,10 +716,10 @@ def main():
     rf_within_pred = rf.predict(X_within_rf)
     rf_cross_pred = rf.predict(X_cross_rf)
 
-    rf_m_within = eval_regression(y_within_mean, rf_within_pred, t1, t2)
-    rf_m_cross = eval_regression(y_cross_mean, rf_cross_pred, t1, t2)
-    rf_comb_pred = np.concatenate([rf_within_pred, rf_cross_pred])
-    rf_m_combined = eval_regression(y_combined_mean, rf_comb_pred, t1, t2)
+    rf_m_within = eval_regression(y_within_mean, rf_within_pred, t1, t2, bnd_within)
+    rf_m_cross = eval_regression(y_cross_mean, rf_cross_pred, t1, t2, bnd_cross)
+    rf_m_combined = combine_metrics(
+        rf_m_within, rf_m_cross, len(y_within), len(y_cross))
 
     print(f"  RF within:   mse={rf_m_within['mse']:.4f} "
           f"cls_acc={rf_m_within['cls_acc']:.3f}", file=sys.stderr)
@@ -661,10 +733,10 @@ def main():
     ens_within_pred = 0.5 * lstm_within_pred + 0.5 * rf_within_pred
     ens_cross_pred = 0.5 * lstm_cross_pred + 0.5 * rf_cross_pred
 
-    ens_m_within = eval_regression(y_within_mean, ens_within_pred, t1, t2)
-    ens_m_cross = eval_regression(y_cross_mean, ens_cross_pred, t1, t2)
-    ens_comb_pred = np.concatenate([ens_within_pred, ens_cross_pred])
-    ens_m_combined = eval_regression(y_combined_mean, ens_comb_pred, t1, t2)
+    ens_m_within = eval_regression(y_within_mean, ens_within_pred, t1, t2, bnd_within)
+    ens_m_cross = eval_regression(y_cross_mean, ens_cross_pred, t1, t2, bnd_cross)
+    ens_m_combined = combine_metrics(
+        ens_m_within, ens_m_cross, len(y_within), len(y_cross))
 
     print(f"  ENS within:  mse={ens_m_within['mse']:.4f} "
           f"cls_acc={ens_m_within['cls_acc']:.3f}", file=sys.stderr)
@@ -683,14 +755,13 @@ def main():
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(42)
 
-    evid_model = train_evidential(X_train, y_train, X_within, y_within,
+    evid_model = train_evidential(X_train, y_train, X_earlystop, y_earlystop,
                                   n_feat, n_steps, device)
 
-    evid_m_within = eval_evidential(evid_model, X_within, y_within, device, t1, t2)
-    evid_m_cross = eval_evidential(evid_model, X_cross, y_cross, device, t1, t2)
-    X_comb = np.concatenate([X_within, X_cross])
-    y_comb = np.concatenate([y_within, y_cross])
-    evid_m_combined = eval_evidential(evid_model, X_comb, y_comb, device, t1, t2)
+    evid_m_within = eval_evidential(evid_model, X_within, y_within, device, t1, t2, bnd_within)
+    evid_m_cross = eval_evidential(evid_model, X_cross, y_cross, device, t1, t2, bnd_cross)
+    evid_m_combined = combine_metrics(
+        evid_m_within, evid_m_cross, len(y_within), len(y_cross))
 
     print(f"  EVID within: mse={evid_m_within['mse']:.4f} "
           f"cls_acc={evid_m_within['cls_acc']:.3f} "

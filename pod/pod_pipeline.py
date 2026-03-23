@@ -746,8 +746,9 @@ def process_intersection(intersection_name):
         shutil.rmtree(vid_frames_dir, ignore_errors=True)
 
     # Reset MOG2 for next intersection
-    if intersection_name in MOG2_DICT:
-        del MOG2_DICT[intersection_name]
+    keys_to_del = [k for k in MOG2_DICT if k.startswith(intersection_name)]
+    for k in keys_to_del:
+        del MOG2_DICT[k]
 
     print(f"\n  {intersection_name}: COMPLETE — {global_fid} total frames")
     return features_csv

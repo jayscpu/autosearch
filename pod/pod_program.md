@@ -4,7 +4,7 @@
 
 Multi-intersection generalization experiment for ECHO. Uses 5 Bellevue traffic
 camera intersections (~101 hours total). Tests whether spatial features trained
-on intersections 1+2 generalize to unseen intersection 3.
+on 4 intersections generalize to unseen intersection 3.
 
 Every run trains 4 models and picks the best by `mse_within`:
 1. **LSTM** — MSE loss, multi-seed ensemble (3 seeds)
@@ -31,12 +31,15 @@ autosearch/pod/
 
 ## Experimental Design
 
-**Training set:** Temporal-split train portions of intersections 1, 2, 4, 5
-**Within-camera val:** Temporal-split val portions of intersections 1, 2, 4, 5
+**Training set:** First 50% of intersections 1, 2, 4, 5 (by temporal order)
+**Early-stop set:** Next 10% (50–60%) of intersections 1, 2, 4, 5 (checkpoint selection only)
+**Within-camera val:** Last 40% (60–100%) of intersections 1, 2, 4, 5 (never seen during training)
 **Cross-camera val:** All of intersection 3 (Bellevue_150th_SE38th)
 **Combined val:** Within + Cross combined
 
-The temporal split is at 60% of each intersection's frames (by frame_id).
+The 3-way split (50% train / 10% early-stop / 40% within-eval) ensures that
+`mse_within` is an honest metric — no model sees within-val during training or
+checkpoint selection.
 
 **Multi-step prediction:** The horizon is divided into sub-windows. Each step
 predicts mean miss_rate over one sub-window. Default: horizon=30, sub_window=6,
@@ -64,11 +67,11 @@ n_steps=5.
 
 | # | Intersection | Role |
 |---|---|---|
-| 1 | Bellevue_150th_Eastgate | Training (60% train / 40% within-val) |
-| 2 | Bellevue_150th_Newport | Training (60% train / 40% within-val) |
+| 1 | Bellevue_150th_Eastgate | Training (50% train / 10% early-stop / 40% within-val) |
+| 2 | Bellevue_150th_Newport | Training (50% train / 10% early-stop / 40% within-val) |
 | 3 | Bellevue_150th_SE38th | Cross-camera test (100% held out) |
-| 4 | Bellevue_Bellevue_NE8th | Training (60% train / 40% within-val) |
-| 5 | Bellevue_116th_NE12th | Training (60% train / 40% within-val) |
+| 4 | Bellevue_Bellevue_NE8th | Training (50% train / 10% early-stop / 40% within-val) |
+| 5 | Bellevue_116th_NE12th | Training (50% train / 10% early-stop / 40% within-val) |
 
 Intersection 3 is the cross-camera held-out test — same 150th corridor as
 intersections 1+2, making it a realistic "new camera, same road" generalization
@@ -135,7 +138,7 @@ test.
 ## Priority Order
 
 1. Establish baseline (all 4 models run, default config)
-2. Sweep λ₁ (evidence regularizer): {0.01, 0.05, 0.1, 0.25, 0.5, 1.0}
+2. Sweep λ₁ (evidence regularizer): {0.01, 0.05, 0.1, 0.25, 0.3, 0.5, 1.0}
 3. Sweep difficulty thresholds t₁, t₂
 4. Architecture (hidden size, layers, dropout)
 5. Training hyperparams (LR, batch size)
