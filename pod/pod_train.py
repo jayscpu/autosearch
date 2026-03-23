@@ -1105,8 +1105,10 @@ def main():
     print(f"  Windows: train={len(y_train)}, earlystop={len(y_earlystop)}, "
           f"within={len(y_within)}, cross={len(y_cross)}", file=sys.stderr)
 
-    if len(y_earlystop) == 0 or len(y_within) == 0 or len(y_cross) == 0:
-        print("ERROR: Empty val set. Check data or window/horizon settings.",
+    if len(y_train) == 0 or len(y_earlystop) == 0 or len(y_within) == 0 or len(y_cross) == 0:
+        print(f"ERROR: Empty split (train={len(y_train)}, earlystop={len(y_earlystop)}, "
+              f"within={len(y_within)}, cross={len(y_cross)}). "
+              f"Check data, window/horizon settings, or warmup_frames.",
               file=sys.stderr)
         sys.exit(1)
 
