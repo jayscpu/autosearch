@@ -109,6 +109,7 @@ FEATURES_CSV = SCRIPT_DIR / "pod_features_all.csv"
 def load_data():
     df = pd.read_csv(FEATURES_CSV)
     if CONFIG["target"] == "miss_rate":
+        # x_count=0 → miss_rate=0 (no vehicles to miss); clip prevents div-by-zero
         df["miss_rate"] = df["fn_nano"] / df["x_count"].clip(lower=1)
     return df
 
@@ -231,17 +232,32 @@ class PlainLSTM(nn.Module):
         n_layers = CONFIG["n_layers"]
         dropout = CONFIG["dropout"] if n_layers > 1 else 0.0
         self.n_steps = n_steps
+        self.hidden = hidden
 
-        self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden,
-                            num_layers=n_layers, batch_first=True, dropout=dropout)
-        self.head = nn.Sequential(
+        self.encoder = nn.LSTM(input_size=input_size, hidden_size=hidden,
+                               num_layers=n_layers, batch_first=True, dropout=dropout)
+        self.decoder = nn.LSTMCell(input_size=1, hidden_size=hidden)
+        self.step_head = nn.Sequential(
             nn.Linear(hidden, 64), nn.ReLU(), nn.Dropout(CONFIG["dropout"]),
-            nn.Linear(64, n_steps),
+            nn.Linear(64, 1),
         )
 
     def forward(self, x):
-        _, (h_n, _) = self.lstm(x)
-        return self.head(h_n[-1])  # (batch, n_steps)
+        _, (h_n, c_n) = self.encoder(x)
+        # Use top-layer hidden/cell as decoder initial state
+        h_dec = h_n[-1]  # (batch, hidden)
+        c_dec = c_n[-1]
+
+        preds = []
+        # First decoder input: zero (no previous prediction)
+        dec_input = torch.zeros(x.size(0), 1, device=x.device)
+        for _ in range(self.n_steps):
+            h_dec, c_dec = self.decoder(dec_input, (h_dec, c_dec))
+            step_pred = self.step_head(h_dec)  # (batch, 1)
+            preds.append(step_pred)
+            dec_input = step_pred.detach()  # feed prediction as next input
+
+        return torch.cat(preds, dim=1)  # (batch, n_steps)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -250,7 +266,7 @@ class PlainLSTM(nn.Module):
 
 class EvidentialLSTM(nn.Module):
     """LSTM with Normal-Inverse-Gamma output for evidential regression.
-    Outputs NIG params (γ, ν, α, β) for each of n_steps sub-windows."""
+    Autoregressive decoder outputs NIG params (γ, ν, α, β) per step."""
 
     def __init__(self, input_size, n_steps):
         super().__init__()
@@ -258,29 +274,45 @@ class EvidentialLSTM(nn.Module):
         n_layers = CONFIG["n_layers"]
         dropout = CONFIG["dropout"] if n_layers > 1 else 0.0
         self.n_steps = n_steps
+        self.hidden = hidden
 
-        self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden,
-                            num_layers=n_layers, batch_first=True, dropout=dropout)
-        self.head = nn.Sequential(
+        self.encoder = nn.LSTM(input_size=input_size, hidden_size=hidden,
+                               num_layers=n_layers, batch_first=True, dropout=dropout)
+        self.decoder = nn.LSTMCell(input_size=1, hidden_size=hidden)
+        self.step_head = nn.Sequential(
             nn.Linear(hidden, 64),
             nn.LayerNorm(64),
             nn.ReLU(),
             nn.Dropout(CONFIG["dropout"]),
-            nn.Linear(64, n_steps * 4),  # 4 NIG params per step
+            nn.Linear(64, 4),  # 4 NIG params per step
         )
         self.softplus = nn.Softplus()
 
     def forward(self, x):
-        _, (h_n, _) = self.lstm(x)
-        raw = self.head(h_n[-1])  # (batch, n_steps * 4)
-        raw = raw.view(-1, self.n_steps, 4)
+        _, (h_n, c_n) = self.encoder(x)
+        h_dec = h_n[-1]
+        c_dec = c_n[-1]
 
-        gamma = raw[:, :, 0]                              # predicted mean
-        nu = self.softplus(raw[:, :, 1]) + 1e-6            # ν > 0
-        alpha = self.softplus(raw[:, :, 2]) + 1.0 + 1e-6   # α > 1
-        beta = self.softplus(raw[:, :, 3]) + 1e-6           # β > 0
+        gammas, nus, alphas, betas = [], [], [], []
+        dec_input = torch.zeros(x.size(0), 1, device=x.device)
+        for _ in range(self.n_steps):
+            h_dec, c_dec = self.decoder(dec_input, (h_dec, c_dec))
+            raw = self.step_head(h_dec)  # (batch, 4)
 
-        return gamma, nu, alpha, beta  # each (batch, n_steps)
+            gamma = raw[:, 0]
+            nu = self.softplus(raw[:, 1]) + 1e-6
+            alpha = self.softplus(raw[:, 2]) + 1.0 + 1e-6
+            beta = self.softplus(raw[:, 3]) + 1e-6
+
+            gammas.append(gamma)
+            nus.append(nu)
+            alphas.append(alpha)
+            betas.append(beta)
+
+            dec_input = gamma.unsqueeze(1).detach()  # feed γ as next input
+
+        return (torch.stack(gammas, dim=1), torch.stack(nus, dim=1),
+                torch.stack(alphas, dim=1), torch.stack(betas, dim=1))
 
     def predict(self, x):
         gamma, nu, alpha, beta = self.forward(x)
@@ -541,6 +573,19 @@ def combine_metrics(m_within, m_cross, n_within, n_cross):
             m_within["unc_separation"] * n_within
             + m_cross["unc_separation"] * n_cross
         ) / n_total
+    # Propagate CDF-based metrics if present (evidential only)
+    if "cls_acc_cdf" in m_within:
+        combined["cls_acc_cdf"] = (
+            m_within["cls_acc_cdf"] * n_within
+            + m_cross["cls_acc_cdf"] * n_cross
+        ) / n_total
+        if nw + nc > 0:
+            combined["cls_trans_acc_cdf"] = (
+                m_within["cls_trans_acc_cdf"] * nw
+                + m_cross["cls_trans_acc_cdf"] * nc
+            ) / (nw + nc)
+        else:
+            combined["cls_trans_acc_cdf"] = 0.0
     return combined
 
 
@@ -571,24 +616,33 @@ def eval_evidential(model, X, y, device, t1, t2, boundary_indices=None):
     p_moderate = np.mean(p_mod_steps, axis=0)
     p_hard = np.mean(p_hard_steps, axis=0)
 
-    probs = np.stack([p_easy, p_moderate, p_hard], axis=1)
-    pred_cls = probs.argmax(axis=1)
     true_cls = to_3class(y_mean, t1, t2)
 
-    cls_acc = float(np.mean(pred_cls == true_cls))
-    cls_trans, n_trans = transition_accuracy_3class(true_cls, pred_cls, boundary_indices)
+    # Threshold-based classification (comparable to LSTM/RF)
+    pred_cls_thresh = to_3class(gamma_mean, t1, t2)
+    cls_acc_thresh = float(np.mean(pred_cls_thresh == true_cls))
+    cls_trans_thresh, n_trans = transition_accuracy_3class(
+        true_cls, pred_cls_thresh, boundary_indices)
 
-    # Uncertainty calibration
-    correct_mask = (pred_cls == true_cls)
+    # CDF-based classification (evidential-specific, uses uncertainty)
+    probs = np.stack([p_easy, p_moderate, p_hard], axis=1)
+    pred_cls_cdf = probs.argmax(axis=1)
+    cls_acc_cdf = float(np.mean(pred_cls_cdf == true_cls))
+    cls_trans_cdf, _ = transition_accuracy_3class(
+        true_cls, pred_cls_cdf, boundary_indices)
+
+    # Uncertainty calibration (use threshold-based for consistency)
+    correct_mask = (pred_cls_thresh == true_cls)
     if correct_mask.sum() > 0 and (~correct_mask).sum() > 0:
         unc_separation = float(epistemic_mean[~correct_mask].mean()
                                - epistemic_mean[correct_mask].mean())
     else:
         unc_separation = 0.0
 
-    return {"mse": mse, "mae": mae, "cls_acc": cls_acc,
-            "cls_trans_acc": cls_trans, "n_trans": n_trans,
-            "unc_separation": unc_separation}
+    return {"mse": mse, "mae": mae,
+            "cls_acc": cls_acc_thresh, "cls_trans_acc": cls_trans_thresh,
+            "cls_acc_cdf": cls_acc_cdf, "cls_trans_acc_cdf": cls_trans_cdf,
+            "n_trans": n_trans, "unc_separation": unc_separation}
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -614,14 +668,13 @@ def main():
     S = CONFIG["sub_window"]
     n_steps = H // S
 
-    # Filter frames with no ground-truth detections BEFORE splitting so that
-    # the 50/10/40 split percentages reflect usable frames only and temporal
-    # contiguity within each video is maximally preserved.
-    before = len(df)
-    df = df[df["x_count"] > 0].reset_index(drop=True)
-    dropped = before - len(df)
-    if dropped:
-        print(f"  Filtered {dropped} x_count=0 frames before split", file=sys.stderr)
+    # Keep all frames including x_count=0: filtering would create temporal
+    # gaps that the LSTM sees as contiguous, distorting windowed sequences.
+    # miss_rate for x_count=0 frames is 0/1=0 (no vehicles to miss).
+    n_zero = int((df["x_count"] == 0).sum())
+    if n_zero:
+        print(f"  x_count=0 frames kept: {n_zero}/{len(df)} "
+              f"({100*n_zero/len(df):.1f}%)", file=sys.stderr)
 
     # Split (3-way from training intersections + held-out cross-camera)
     train_df, earlystop_df, within_val_df, cross_val_df = split_data(df)
@@ -765,9 +818,11 @@ def main():
 
     print(f"  EVID within: mse={evid_m_within['mse']:.4f} "
           f"cls_acc={evid_m_within['cls_acc']:.3f} "
+          f"cls_acc_cdf={evid_m_within['cls_acc_cdf']:.3f} "
           f"unc_sep={evid_m_within['unc_separation']:.4f}", file=sys.stderr)
     print(f"  EVID cross:  mse={evid_m_cross['mse']:.4f} "
           f"cls_acc={evid_m_cross['cls_acc']:.3f} "
+          f"cls_acc_cdf={evid_m_cross['cls_acc_cdf']:.3f} "
           f"unc_sep={evid_m_cross['unc_separation']:.4f}", file=sys.stderr)
 
     # ═════════════════════════════════════════════════════════════
@@ -823,7 +878,7 @@ def main():
     unc_within = best_within.get("unc_separation", 0.0)
     unc_cross = best_cross.get("unc_separation", 0.0)
 
-    print("\t".join([
+    result_fields = [
         "RESULT",
         f"model={best_name}",
         f"mse_within={best_within['mse']:.6f}",
@@ -840,7 +895,18 @@ def main():
         f"n_within={len(y_within)}",
         f"n_cross={len(y_cross)}",
         f"config={json.dumps(config_summary)}",
-    ]))
+    ]
+
+    # Add CDF-based metrics when evidential model wins
+    if best_name == "EvidentialLSTM":
+        result_fields.extend([
+            f"cls_acc_cdf_within={best_within['cls_acc_cdf']:.6f}",
+            f"cls_acc_cdf_cross={best_cross['cls_acc_cdf']:.6f}",
+            f"cls_trans_cdf_within={best_within['cls_trans_acc_cdf']:.6f}",
+            f"cls_trans_cdf_cross={best_cross['cls_trans_acc_cdf']:.6f}",
+        ])
+
+    print("\t".join(result_fields))
 
 
 if __name__ == "__main__":
