@@ -16,6 +16,7 @@ Output:
   pod/pod_detections_{intersection}.csv — raw detection results
 """
 
+import argparse
 import json
 import pickle
 import subprocess
@@ -92,7 +93,7 @@ def extract_frames_from_video(video_path, output_dir):
 
 YOLO_BATCH_SIZE = 8  # A100 80GB can handle 8 frames at once easily
 
-def run_yolo_on_frames(frame_files, model, imgsz):
+def run_yolo_on_frames(frame_files, model, imgsz, label=""):
     """Run a YOLO model on a list of frame files using batch inference.
     Returns dict of frame_idx → boxes, confs."""
     dets = {}
@@ -118,6 +119,11 @@ def run_yolo_on_frames(frame_files, model, imgsz):
                 "boxes": boxes_all[mask] if mask.any() else np.empty((0, 4)),
                 "confs": conf_all[mask] if mask.any() else np.empty(0),
             }
+
+        frames_done = min(batch_end, n)
+        if frames_done % 500 < YOLO_BATCH_SIZE or frames_done == n:
+            tag = f" ({label})" if label else ""
+            print(f"      [{frames_done}/{n}]{tag}", flush=True)
     return dets
 
 
@@ -669,13 +675,13 @@ def process_intersection(intersection_name):
 
         # Phase 2: YOLO inference
         print(f"    Running YOLO11n@640 ...", flush=True)
-        nano_dets = run_yolo_on_frames(frame_files, nano_model, 640)
+        nano_dets = run_yolo_on_frames(frame_files, nano_model, 640, label="nano@640")
         print(f"    Running YOLO11s@640 ...", flush=True)
-        small_dets = run_yolo_on_frames(frame_files, small_model, 640)
+        small_dets = run_yolo_on_frames(frame_files, small_model, 640, label="small@640")
         print(f"    Running YOLO11m@640 ...", flush=True)
-        medium_dets = run_yolo_on_frames(frame_files, medium_model, 640)
+        medium_dets = run_yolo_on_frames(frame_files, medium_model, 640, label="medium@640")
         print(f"    Running YOLO11x@1280 ...", flush=True)
-        x_dets = run_yolo_on_frames(frame_files, x_model, 1280)
+        x_dets = run_yolo_on_frames(frame_files, x_model, 1280, label="x@1280")
 
         # Phase 3+4: Matching + Feature extraction
         print(f"    Matching + feature extraction ...", flush=True)
@@ -771,6 +777,11 @@ def process_intersection(intersection_name):
 # ═══════════════════════════════════════════════════════════════════
 
 def main():
+    parser = argparse.ArgumentParser(description="ECHO Bellevue extraction pipeline")
+    parser.add_argument("--intersection", type=str, default=None,
+                        help="Process only this intersection (default: all)")
+    args = parser.parse_args()
+
     print("=" * 70)
     print("ECHO BELLEVUE — Multi-Intersection Extraction Pipeline")
     print("=" * 70)
@@ -778,8 +789,18 @@ def main():
     CKPT_DIR.mkdir(parents=True, exist_ok=True)
     FRAMES_DIR.mkdir(parents=True, exist_ok=True)
 
-    for name in INTERSECTIONS:
+    if args.intersection:
+        targets = [args.intersection]
+    else:
+        targets = INTERSECTIONS
+
+    for name in targets:
         process_intersection(name)
+
+    # Skip merge when processing a single intersection
+    if len(targets) == 1:
+        print("\nDone (single intersection, skipping merge).")
+        return
 
     # Merge all intersection CSVs into one combined file
     print("\n" + "=" * 70)
