@@ -2,4 +2,5 @@ pod/data/
 pod/frames/
 pod/checkpoints/
 *.pt
-pod/*.csv
+pod/pod_features_*.csv
+pod/pod_detections_*.csv
