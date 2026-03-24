@@ -1,0 +1,5 @@
+pod/data/
+pod/frames/
+pod/checkpoints/
+*.pt
+pod/*.csv
