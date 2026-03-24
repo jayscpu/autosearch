@@ -90,22 +90,34 @@ def extract_frames_from_video(video_path, output_dir):
 # Phase 2: YOLO Inference
 # ═══════════════════════════════════════════════════════════════════
 
-def run_yolo_on_frames(frame_files, model, imgsz):
-    """Run a YOLO model on a list of frame files. Returns dict of frame_idx → boxes, confs."""
-    dets = {}
-    for i, fpath in enumerate(frame_files):
-        results = model.predict(str(fpath), conf=CONF, iou=IOU_THRESH,
-                                imgsz=imgsz, verbose=False)
-        det = results[0].boxes
-        boxes_all = det.xyxy.cpu().numpy()
-        cls_all = det.cls.cpu().numpy().astype(int)
-        conf_all = det.conf.cpu().numpy()
+YOLO_BATCH_SIZE = 8  # A100 80GB can handle 8 frames at once easily
 
-        mask = np.isin(cls_all, list(VEHICLE_COCO))
-        dets[i] = {
-            "boxes": boxes_all[mask] if mask.any() else np.empty((0, 4)),
-            "confs": conf_all[mask] if mask.any() else np.empty(0),
-        }
+def run_yolo_on_frames(frame_files, model, imgsz):
+    """Run a YOLO model on a list of frame files using batch inference.
+    Returns dict of frame_idx → boxes, confs."""
+    dets = {}
+    paths = [str(f) for f in frame_files]
+    n = len(paths)
+
+    for batch_start in range(0, n, YOLO_BATCH_SIZE):
+        batch_end = min(batch_start + YOLO_BATCH_SIZE, n)
+        batch_paths = paths[batch_start:batch_end]
+
+        results = model.predict(batch_paths, conf=CONF, iou=IOU_THRESH,
+                                imgsz=imgsz, verbose=False)
+
+        for j, res in enumerate(results):
+            idx = batch_start + j
+            det = res.boxes
+            boxes_all = det.xyxy.cpu().numpy()
+            cls_all = det.cls.cpu().numpy().astype(int)
+            conf_all = det.conf.cpu().numpy()
+
+            mask = np.isin(cls_all, list(VEHICLE_COCO))
+            dets[idx] = {
+                "boxes": boxes_all[mask] if mask.any() else np.empty((0, 4)),
+                "confs": conf_all[mask] if mask.any() else np.empty(0),
+            }
     return dets
 
 
