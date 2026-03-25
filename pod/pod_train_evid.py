@@ -48,7 +48,7 @@ warnings.filterwarnings("ignore")
 
 CONFIG = {
     # ── Mode ── ("lstm" or "evidential")
-    "mode": "lstm",
+    "mode": "evidential",
 
     # ── Features ──
     "features": TOP_35_SPEARMAN,
@@ -1042,7 +1042,7 @@ def main():
     parser.add_argument("--mode", choices=["lstm", "evidential"], default=None,
                         help="Override CONFIG mode: lstm or evidential")
     parser.add_argument("--results-file", default=None,
-                        help="Results TSV file (default: pod_results_lstm.tsv)")
+                        help="Results TSV file (default: pod_results_evid.tsv)")
     args = parser.parse_args()
 
     if args.mode:
