@@ -8,3 +8,4 @@ pod/pod_detections_*.csv
 __pycache__/
 pod/__pycache__/
 .claude/
+*.pdf
