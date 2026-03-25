@@ -3,4 +3,8 @@ pod/frames/
 pod/checkpoints/
 *.pt
 pod/pod_features_*.csv
+pod/pod_features_all.csv
 pod/pod_detections_*.csv
+__pycache__/
+pod/__pycache__/
+.claude/
