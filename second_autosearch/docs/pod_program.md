@@ -15,36 +15,42 @@ Data is pre-extracted by `pod_pipeline.py`. Work only with the CSVs.
 ## Repo Structure
 
 ```
-autosearch/pod/
-├── pod_program.md              ← YOU ARE HERE
-├── pod_train.py                ← Sweep A (LSTM) — THE FILE YOU EDIT
-├── pod_train_evid.py           ← Sweep B (Evidential) — copy, diverges during sweep
-├── pod_results_lstm.tsv        ← Sweep A experiment log
-├── pod_results_evid.tsv        ← Sweep B experiment log
-├── pod_features.py             ← shared feature list
-├── pod_pipeline.py             ← extraction pipeline (already run)
-├── pod_features_all.csv        ← combined features (DO NOT MODIFY)
-├── pod_features_{intersection}.csv  ← per-intersection features
-└── pod_detections_{intersection}.csv
+autosearch/second_autosearch/
+├── docs/
+│   └── pod_program.md              ← YOU ARE HERE
+├── src/
+│   ├── pod_train.py                ← Sweep A (LSTM) — THE FILE YOU EDIT
+│   ├── pod_train_evid.py           ← Sweep B (Evidential) — copy, diverges during sweep
+│   ├── pod_features.py             ← shared feature list
+│   ├── pod_pipeline.py             ← extraction pipeline (already run)
+│   ├── pod_download.sh             ← data download script
+│   └── pod_setup.sh                ← environment setup script
+├── data/
+│   ├── pod_features_all.csv        ← combined features (DO NOT MODIFY)
+│   ├── pod_features_{intersection}.csv  ← per-intersection features
+│   └── pod_detections_{intersection}.csv
+└── results/
+    ├── pod_results_lstm.tsv        ← Sweep A experiment log
+    └── pod_results_evid.tsv        ← Sweep B experiment log
 ```
 
 ## Experimental Design
 
 ### Two-Sweep Design
 
-**Sweep A (LSTM):** `python pod_train.py --mode lstm --results-file pod_results_lstm.tsv`
+**Sweep A (LSTM):** `python src/pod_train.py --mode lstm --results-file results/pod_results_lstm.tsv`
 - Trains only PlainLSTM (3-seed ensemble, MSE loss)
 - Keep/discard based on LSTM mse_within with cls_trans > 0.50 filter
 - Optimizes: features, window, horizon, architecture, LR, dropout, batch_size, thresholds
 
-**Sweep B (Evidential):** `python pod_train.py --mode evidential --results-file pod_results_evid.tsv`
+**Sweep B (Evidential):** `python src/pod_train.py --mode evidential --results-file results/pod_results_evid.tsv`
 - Trains only EvidentialLSTM (NIG loss, single seed)
 - Keep/discard based on EvidentialLSTM mse_within with cls_trans > 0.50 AND unc_sep > 0 filter
 - Optimizes: same shared hyperparams PLUS lambda1
 
 **Both sweeps run in parallel** in two separate terminal windows. Each sweep edits its own copy of pod_train.py to avoid git conflicts:
-- Sweep A: works on pod/pod_train.py, logs to pod/pod_results_lstm.tsv
-- Sweep B: works on pod/pod_train_evid.py (copy of pod_train.py), logs to pod/pod_results_evid.tsv
+- Sweep A: works on second_autosearch/src/pod_train.py, logs to second_autosearch/results/pod_results_lstm.tsv
+- Sweep B: works on second_autosearch/src/pod_train_evid.py (copy), logs to second_autosearch/results/pod_results_evid.tsv
 
 **After both sweeps:** Run RF and LSTM+RF once at each optimal config for the thesis comparison table.
 
@@ -158,11 +164,11 @@ test.
 
 ## Experiment Protocol
 
-1. Read pod_train.py (or pod_train_evid.py) fully before starting
+1. Read src/pod_train.py (or src/pod_train_evid.py) fully before starting
 2. Run baseline first with default config. Record in the sweep's results TSV.
 3. ONE change at a time
 4. Run the experiment, parse the RESULT line
-5. Log to the sweep's results TSV (pod_results_lstm.tsv or pod_results_evid.tsv)
+5. Log to the sweep's results TSV (results/pod_results_lstm.tsv or results/pod_results_evid.tsv)
 6. Keep if: mse_within improves AND cls_trans > 0.50 (evidential: also unc_sep > 0)
 7. Discard if: mse_within worsens or cls_trans drops below 0.50
 8. Git commit each experiment

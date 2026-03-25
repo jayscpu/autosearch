@@ -48,7 +48,7 @@ warnings.filterwarnings("ignore")
 
 CONFIG = {
     # ── Mode ── ("lstm" or "evidential")
-    "mode": "evidential",
+    "mode": "lstm",
 
     # ── Features ──
     "features": TOP_35_SPEARMAN,
@@ -120,7 +120,10 @@ CONFIG = {
 # ═══════════════════════════════════════════════════════════════════
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-FEATURES_CSV = SCRIPT_DIR / "pod_features_all.csv"
+PROJECT_DIR = SCRIPT_DIR.parent
+DATA_DIR = PROJECT_DIR / "data"
+RESULTS_DIR = PROJECT_DIR / "results"
+FEATURES_CSV = DATA_DIR / "pod_features_all.csv"
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1042,7 +1045,7 @@ def main():
     parser.add_argument("--mode", choices=["lstm", "evidential"], default=None,
                         help="Override CONFIG mode: lstm or evidential")
     parser.add_argument("--results-file", default=None,
-                        help="Results TSV file (default: pod_results_evid.tsv)")
+                        help="Results TSV file (default: results/pod_results_lstm.tsv)")
     args = parser.parse_args()
 
     if args.mode:
@@ -1052,7 +1055,8 @@ def main():
 
     results_file = args.results_file
     if results_file is None:
-        results_file = "pod_results_lstm.tsv" if mode == "lstm" else "pod_results_evid.tsv"
+        fname = "pod_results_lstm.tsv" if mode == "lstm" else "pod_results_evid.tsv"
+        results_file = str(RESULTS_DIR / fname)
 
     t0 = time.time()
     if not torch.cuda.is_available():

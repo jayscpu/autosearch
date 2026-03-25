@@ -35,6 +35,8 @@ warnings.filterwarnings("ignore")
 
 # ── Paths ──────────────────────────────────────────────────────────
 SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_DIR = SCRIPT_DIR.parent
+OUTPUT_DIR = PROJECT_DIR / "data"
 DATA_DIR = SCRIPT_DIR / "data"
 FRAMES_DIR = SCRIPT_DIR / "frames"
 CKPT_DIR = SCRIPT_DIR / "checkpoints"
@@ -630,8 +632,8 @@ def process_intersection(intersection_name):
         ckpt = {"completed_videos": [], "global_frame_id": 0}
 
     # Output CSVs
-    features_csv = SCRIPT_DIR / f"pod_features_{intersection_name}.csv"
-    dets_csv = SCRIPT_DIR / f"pod_detections_{intersection_name}.csv"
+    features_csv = OUTPUT_DIR / f"pod_features_{intersection_name}.csv"
+    dets_csv = OUTPUT_DIR / f"pod_detections_{intersection_name}.csv"
 
     # Load existing partial results
     all_feat_records = []
@@ -809,7 +811,7 @@ def main():
 
     all_dfs = []
     for name in INTERSECTIONS:
-        csv_path = SCRIPT_DIR / f"pod_features_{name}.csv"
+        csv_path = OUTPUT_DIR / f"pod_features_{name}.csv"
         if csv_path.exists():
             df = pd.read_csv(csv_path)
             all_dfs.append(df)
@@ -817,7 +819,7 @@ def main():
 
     if all_dfs:
         combined = pd.concat(all_dfs, ignore_index=True)
-        combined_path = SCRIPT_DIR / "pod_features_all.csv"
+        combined_path = OUTPUT_DIR / "pod_features_all.csv"
         combined.to_csv(combined_path, index=False)
         print(f"\n  Combined: {len(combined)} frames → {combined_path}")
 

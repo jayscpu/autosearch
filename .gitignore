@@ -1,11 +1,12 @@
-pod/data/
-pod/frames/
-pod/checkpoints/
+# Second autosearch (pod)
+second_autosearch/data/pod_features_*.csv
+second_autosearch/data/pod_features_all.csv
+second_autosearch/src/data/
+second_autosearch/src/frames/
+second_autosearch/src/checkpoints/
+
+# General
 *.pt
-pod/pod_features_*.csv
-pod/pod_features_all.csv
-pod/pod_detections_*.csv
-__pycache__/
-pod/__pycache__/
-.claude/
 *.pdf
+__pycache__/
+.claude/
