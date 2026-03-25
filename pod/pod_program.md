@@ -6,12 +6,9 @@ Multi-intersection generalization experiment for ECHO. Uses 5 Bellevue traffic
 camera intersections (~101 hours total). Tests whether spatial features trained
 on 4 intersections generalize to unseen intersection 3.
 
-Every run trains 4 models and picks the best by `mse_within`:
-1. **LSTM** — MSE loss, multi-seed ensemble (3 seeds)
-2. **RF** — RandomForestRegressor on summary features (mean/std/slope)
-3. **LSTM+RF** — averaged predictions from 1 and 2
-4. **EvidentialLSTM** — NIG loss with uncertainty quantification, Student-t CDF
-   conversion to 3-class probabilities for the MPC controller
+Two-sweep design: each run trains a single model type.
+- **Sweep A (LSTM):** PlainLSTM only (3-seed ensemble, MSE loss)
+- **Sweep B (Evidential):** EvidentialLSTM only (NIG loss, single seed)
 
 Data is pre-extracted by `pod_pipeline.py`. Work only with the CSVs.
 
@@ -19,17 +16,39 @@ Data is pre-extracted by `pod_pipeline.py`. Work only with the CSVs.
 
 ```
 autosearch/pod/
-├── pod_program.md          ← YOU ARE HERE
-├── pod_train.py            ← THE FILE YOU EDIT
-├── pod_results.tsv         ← experiment log
-├── pod_features.py         ← shared feature list
-├── pod_pipeline.py         ← extraction pipeline (already run)
-├── pod_features_all.csv    ← combined features (DO NOT MODIFY)
+├── pod_program.md              ← YOU ARE HERE
+├── pod_train.py                ← Sweep A (LSTM) — THE FILE YOU EDIT
+├── pod_train_evid.py           ← Sweep B (Evidential) — copy, diverges during sweep
+├── pod_results_lstm.tsv        ← Sweep A experiment log
+├── pod_results_evid.tsv        ← Sweep B experiment log
+├── pod_features.py             ← shared feature list
+├── pod_pipeline.py             ← extraction pipeline (already run)
+├── pod_features_all.csv        ← combined features (DO NOT MODIFY)
 ├── pod_features_{intersection}.csv  ← per-intersection features
 └── pod_detections_{intersection}.csv
 ```
 
 ## Experimental Design
+
+### Two-Sweep Design
+
+**Sweep A (LSTM):** `python pod_train.py --mode lstm --results-file pod_results_lstm.tsv`
+- Trains only PlainLSTM (3-seed ensemble, MSE loss)
+- Keep/discard based on LSTM mse_within with cls_trans > 0.50 filter
+- Optimizes: features, window, horizon, architecture, LR, dropout, batch_size, thresholds
+
+**Sweep B (Evidential):** `python pod_train.py --mode evidential --results-file pod_results_evid.tsv`
+- Trains only EvidentialLSTM (NIG loss, single seed)
+- Keep/discard based on EvidentialLSTM mse_within with cls_trans > 0.50 AND unc_sep > 0 filter
+- Optimizes: same shared hyperparams PLUS lambda1
+
+**Both sweeps run in parallel** in two separate terminal windows. Each sweep edits its own copy of pod_train.py to avoid git conflicts:
+- Sweep A: works on pod/pod_train.py, logs to pod/pod_results_lstm.tsv
+- Sweep B: works on pod/pod_train_evid.py (copy of pod_train.py), logs to pod/pod_results_evid.tsv
+
+**After both sweeps:** Run RF and LSTM+RF once at each optimal config for the thesis comparison table.
+
+### Data Splits
 
 **Training set:** First 50% of intersections 1, 2, 4, 5 (by temporal order)
 **Early-stop set:** Next 10% (50–60%) of intersections 1, 2, 4, 5 (checkpoint selection only)
@@ -80,10 +99,10 @@ test.
 ## Search Space
 
 ### Models
-- All 4 models run every experiment — no mode switching
-- The best model is selected automatically by mse_within
-- Hyperparameter changes affect all models equally (architecture, features, etc.)
-- λ₁ only affects EvidentialLSTM; RF params only affect RF
+- Each run trains ONE model based on `--mode` flag (lstm or evidential)
+- LSTM mode: PlainLSTM 3-seed ensemble, keep/discard on mse_within
+- Evidential mode: EvidentialLSTM single seed, keep/discard on mse_within + unc_sep > 0
+- Shared hyperparams affect both; λ₁ only affects evidential mode
 
 ### Features
 - Start with top-35 Spearman features from classification search (proven best)
@@ -139,12 +158,12 @@ test.
 
 ## Experiment Protocol
 
-1. Read pod_train.py fully before starting
-2. Run baseline first (all 4 models train every run). Record in pod_results.tsv.
+1. Read pod_train.py (or pod_train_evid.py) fully before starting
+2. Run baseline first with default config. Record in the sweep's results TSV.
 3. ONE change at a time
 4. Run the experiment, parse the RESULT line
-5. Log to pod_results.tsv
-6. Keep if: mse_within improves AND cls_trans > 0.50
+5. Log to the sweep's results TSV (pod_results_lstm.tsv or pod_results_evid.tsv)
+6. Keep if: mse_within improves AND cls_trans > 0.50 (evidential: also unc_sep > 0)
 7. Discard if: mse_within worsens or cls_trans drops below 0.50
 8. Git commit each experiment
 9. Crash → revert
@@ -152,15 +171,27 @@ test.
 
 ## Priority Order
 
-1. Establish baseline (all 4 models run, default config)
+### Sweep A (LSTM)
+1. Establish baseline (LSTM, default config)
+2. Sweep difficulty thresholds t₁, t₂
+3. Architecture (hidden size, layers, dropout)
+4. Training hyperparams (LR, batch size)
+5. Feature subsets
+6. Window/horizon/sub_window
+7. Combine best settings
+
+### Sweep B (Evidential)
+1. Establish baseline (EvidentialLSTM, default config)
 2. Sweep λ₁ (evidence regularizer): {0.01, 0.05, 0.1, 0.25, 0.3, 0.5, 1.0}
 3. Sweep difficulty thresholds t₁, t₂
 4. Architecture (hidden size, layers, dropout)
 5. Training hyperparams (LR, batch size)
 6. Feature subsets
 7. Window/horizon/sub_window
-8. RF hyperparams (n_estimators, max_depth, min_samples_leaf)
-9. Combine best settings
+8. Combine best settings
+
+### After Both Sweeps
+- Run RF and LSTM+RF once at each sweep's optimal config for thesis comparison table
 
 ## CRASH SAFETY
 
@@ -176,5 +207,4 @@ Before each experiment:
 
 - Python 3 + PyTorch + scikit-learn + pandas + numpy + scipy
 - Single GPU or CPU
-- Each experiment under 5 minutes
 - Do not modify CSV files
