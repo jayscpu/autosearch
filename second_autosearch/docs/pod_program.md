@@ -112,7 +112,7 @@ test.
 
 ### Features
 - Start with top-35 Spearman features from classification search (proven best)
-- Also try all 65, all 75, top-20, top-25, top-30, top-40
+- Also try top-5, top-10, top-15, top-20, top-25, top-30, top-40, all-65, all-75
 - The optimal subset for regression may differ from classification
 - **Feature selection methods** (set flags in CONFIG, rankings print to stderr):
   - `spearman_feature_selection`: absolute Spearman rank correlation with miss_rate
