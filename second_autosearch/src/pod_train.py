@@ -752,29 +752,24 @@ def nig_to_class_probs(gamma, nu, alpha, beta, t1, t2):
     loc = gamma
     scale = np.sqrt(beta * (1.0 + nu) / (nu * alpha))
 
-    p_easy = np.zeros(len(gamma))
-    p_moderate = np.zeros(len(gamma))
-    p_hard = np.zeros(len(gamma))
+    # Default: uniform 1/3 for invalid samples
+    p_easy = np.full(len(gamma), 1.0 / 3.0)
+    p_moderate = np.full(len(gamma), 1.0 / 3.0)
+    p_hard = np.full(len(gamma), 1.0 / 3.0)
 
-    for i in range(len(gamma)):
-        if df[i] <= 0 or scale[i] <= 0 or np.isnan(df[i]) or np.isnan(scale[i]):
-            p_easy[i] = 1.0 / 3.0
-            p_moderate[i] = 1.0 / 3.0
-            p_hard[i] = 1.0 / 3.0
-            continue
+    valid = (df > 0) & (scale > 0) & ~np.isnan(df) & ~np.isnan(scale)
+    if valid.any():
+        cdf_t1 = scipy_stats.t.cdf(t1, df=df[valid], loc=loc[valid], scale=scale[valid])
+        cdf_t2 = scipy_stats.t.cdf(t2, df=df[valid], loc=loc[valid], scale=scale[valid])
 
-        dist = scipy_stats.t(df=df[i], loc=loc[i], scale=scale[i])
-        cdf_t1 = dist.cdf(t1)
-        cdf_t2 = dist.cdf(t2)
+        pe = np.clip(cdf_t1, 1e-8, 1.0 - 1e-8)
+        ph = np.clip(1.0 - cdf_t2, 1e-8, 1.0 - 1e-8)
+        pm = np.clip(cdf_t2 - cdf_t1, 1e-8, 1.0 - 1e-8)
 
-        p_easy[i] = np.clip(cdf_t1, 1e-8, 1.0 - 1e-8)
-        p_hard[i] = np.clip(1.0 - cdf_t2, 1e-8, 1.0 - 1e-8)
-        p_moderate[i] = np.clip(cdf_t2 - cdf_t1, 1e-8, 1.0 - 1e-8)
-
-        total = p_easy[i] + p_moderate[i] + p_hard[i]
-        p_easy[i] /= total
-        p_moderate[i] /= total
-        p_hard[i] /= total
+        total = pe + pm + ph
+        p_easy[valid] = pe / total
+        p_moderate[valid] = pm / total
+        p_hard[valid] = ph / total
 
     return p_easy, p_moderate, p_hard
 
@@ -1044,6 +1039,7 @@ def main():
 
     H = CONFIG["horizon"]
     S = CONFIG["sub_window"]
+    assert H % S == 0, f"horizon ({H}) must be divisible by sub_window ({S})"
     n_steps = H // S
 
     # Keep all frames including x_count=0: filtering would create temporal
@@ -1077,9 +1073,20 @@ def main():
               file=sys.stderr)
         sys.exit(0)
 
-    # Scaler from training data only (not early-stop or val)
+    # Scaler from training data only (not early-stop or val),
+    # with warmup frames skipped to match what build_windows actually uses
+    warmup = CONFIG.get("warmup_frames", 0)
+    if warmup > 0:
+        group_cols = ["sequence", "video"] if "video" in train_df.columns else ["sequence"]
+        kept = []
+        for _, sdf in train_df.groupby(group_cols):
+            sdf = sdf.sort_values("frame_id")
+            kept.append(sdf.iloc[warmup:])
+        scaler_df = pd.concat(kept, ignore_index=True)
+    else:
+        scaler_df = train_df
     scaler = StandardScaler()
-    scaler.fit(train_df[feature_cols].values)
+    scaler.fit(scaler_df[feature_cols].values)
 
     # Build windows for all 4 sets
     X_train, y_train, _, _ = build_windows(
