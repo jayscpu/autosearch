@@ -157,6 +157,9 @@ test.
 - Patience: {25, 40, 60}
 - Gradient clipping: {0.5, 1.0, 2.0}
 
+### Warmup Frames (low priority)
+- warmup_frames: {0, 100, 200, 400} — test once, low priority
+
 ### Cross-camera generalization
 - Feature set: original 65 vs all 75 (with new temporal/detector features)
 - Cross-camera calibration: does fine-tuning on 30min of new camera help?
@@ -169,8 +172,8 @@ test.
 3. ONE change at a time
 4. Run the experiment, parse the RESULT line
 5. Log to the sweep's results TSV (results/pod_results_lstm.tsv or results/pod_results_evid.tsv)
-6. Keep if: mse_within improves AND cls_trans > 0.50 (evidential: also unc_sep > 0)
-7. Discard if: mse_within worsens or cls_trans drops below 0.50
+6. Keep if: (a) mse_within improves, AND (b) mse_cross does not worsen by more than 10% relative to the best mse_cross seen so far, AND (c) cls_trans_within > 0.50. This cross-val guard prevents the search from drifting toward intersection memorization. For evidential mode additionally: unc_sep_within > 0.
+7. Discard if: any keep condition is violated
 8. Git commit each experiment
 9. Crash → revert
 10. NEVER STOP — continue until manually stopped

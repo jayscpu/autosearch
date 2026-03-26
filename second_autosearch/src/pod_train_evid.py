@@ -193,6 +193,7 @@ def build_windows(df, feature_cols, stride, scaler):
     target_col = get_target_column()
 
     X_list, y_list = [], []
+    seq_labels = []
     # Track the first index of each video group so transition_accuracy can
     # skip comparisons at video boundaries (those pairs aren't temporal neighbours)
     boundary_indices = set()
@@ -215,6 +216,7 @@ def build_windows(df, feature_cols, stride, scaler):
         if len(X_list) > 0:
             boundary_indices.add(len(X_list))
 
+        seq_name = sdf["sequence"].iloc[0]
         feat_vals = scaler.transform(sdf[feature_cols].values)
         target_vals = sdf[target_col].values
 
@@ -229,10 +231,11 @@ def build_windows(df, feature_cols, stride, scaler):
                 targets[step] = target_vals[start:end].mean()
 
             y_list.append(targets)
+            seq_labels.append(seq_name)
 
     X = np.array(X_list, dtype=np.float32)
     y = np.array(y_list, dtype=np.float32)  # shape: (N, n_steps)
-    return X, y, boundary_indices
+    return X, y, boundary_indices, seq_labels
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -455,9 +458,9 @@ def _sffs_eval_rf(feature_subset, train_df, within_val_df):
     scaler = StandardScaler()
     scaler.fit(train_df[feature_subset].values)
 
-    X_train, y_train, _ = build_windows(
+    X_train, y_train, _, _ = build_windows(
         train_df, feature_subset, CONFIG["train_stride"], scaler)
-    X_val, y_val, _ = build_windows(
+    X_val, y_val, _, _ = build_windows(
         within_val_df, feature_subset, CONFIG["eval_stride"], scaler)
 
     if len(y_val) == 0 or len(y_train) == 0:
@@ -801,6 +804,8 @@ def train_plain(X_train, y_train, X_val, y_val, n_feat, n_steps, device):
         for xb, yb in train_loader:
             xb, yb = xb.to(device), yb.to(device)
             loss = mse_loss(model(xb), yb)
+            if torch.isnan(loss):
+                continue
             optimizer.zero_grad()
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), CONFIG["grad_clip"])
@@ -930,53 +935,13 @@ def eval_regression(y_true_mean, y_pred_mean, t1, t2, boundary_indices=None):
 
     true_cls = to_3class(y_true_mean, t1, t2)
     pred_cls = to_3class(y_pred_mean, t1, t2)
+    majority_acc = float(np.max(np.bincount(true_cls)) / len(true_cls))
     cls_acc = float(np.mean(pred_cls == true_cls))
     cls_trans, n_trans = transition_accuracy_3class(true_cls, pred_cls, boundary_indices)
 
     return {"mse": mse, "mae": mae, "cls_acc": cls_acc,
-            "cls_trans_acc": cls_trans, "n_trans": n_trans}
-
-
-def combine_metrics(m_within, m_cross, n_within, n_cross):
-    """Combine within/cross metrics via weighted average.
-
-    Avoids concatenating arrays, which would create a spurious class
-    transition at the boundary between the two evaluation sets.
-    """
-    n_total = n_within + n_cross
-    combined = {}
-    for key in ("mse", "mae", "cls_acc"):
-        combined[key] = (m_within[key] * n_within + m_cross[key] * n_cross) / n_total
-    # Transition accuracy: weight by number of transitions, not samples
-    nw = m_within.get("n_trans", 0)
-    nc = m_cross.get("n_trans", 0)
-    if nw + nc > 0:
-        combined["cls_trans_acc"] = (
-            m_within["cls_trans_acc"] * nw + m_cross["cls_trans_acc"] * nc
-        ) / (nw + nc)
-    else:
-        combined["cls_trans_acc"] = 0.0
-    combined["n_trans"] = nw + nc
-    # Propagate uncertainty separation if present
-    if "unc_separation" in m_within:
-        combined["unc_separation"] = (
-            m_within["unc_separation"] * n_within
-            + m_cross["unc_separation"] * n_cross
-        ) / n_total
-    # Propagate CDF-based metrics if present (evidential only)
-    if "cls_acc_cdf" in m_within:
-        combined["cls_acc_cdf"] = (
-            m_within["cls_acc_cdf"] * n_within
-            + m_cross["cls_acc_cdf"] * n_cross
-        ) / n_total
-        if nw + nc > 0:
-            combined["cls_trans_acc_cdf"] = (
-                m_within["cls_trans_acc_cdf"] * nw
-                + m_cross["cls_trans_acc_cdf"] * nc
-            ) / (nw + nc)
-        else:
-            combined["cls_trans_acc_cdf"] = 0.0
-    return combined
+            "cls_trans_acc": cls_trans, "n_trans": n_trans,
+            "majority_acc": majority_acc}
 
 
 def eval_evidential(model, X, y, device, t1, t2, boundary_indices=None):
@@ -1007,6 +972,7 @@ def eval_evidential(model, X, y, device, t1, t2, boundary_indices=None):
     p_hard = np.mean(p_hard_steps, axis=0)
 
     true_cls = to_3class(y_mean, t1, t2)
+    majority_acc = float(np.max(np.bincount(true_cls)) / len(true_cls))
 
     # Threshold-based classification (comparable to LSTM/RF)
     pred_cls_thresh = to_3class(gamma_mean, t1, t2)
@@ -1032,7 +998,8 @@ def eval_evidential(model, X, y, device, t1, t2, boundary_indices=None):
     return {"mse": mse, "mae": mae,
             "cls_acc": cls_acc_thresh, "cls_trans_acc": cls_trans_thresh,
             "cls_acc_cdf": cls_acc_cdf, "cls_trans_acc_cdf": cls_trans_cdf,
-            "n_trans": n_trans, "unc_separation": unc_separation}
+            "n_trans": n_trans, "unc_separation": unc_separation,
+            "majority_acc": majority_acc}
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1046,6 +1013,8 @@ def main():
                         help="Override CONFIG mode: lstm or evidential")
     parser.add_argument("--results-file", default=None,
                         help="Results TSV file (default: results/pod_results_evid.tsv)")
+    parser.add_argument("--stability", action="store_true",
+                        help="Run 3-seed stability test and exit")
     args = parser.parse_args()
 
     if args.mode:
@@ -1115,13 +1084,13 @@ def main():
     scaler.fit(train_df[feature_cols].values)
 
     # Build windows for all 4 sets
-    X_train, y_train, _ = build_windows(
+    X_train, y_train, _, _ = build_windows(
         train_df, feature_cols, CONFIG["train_stride"], scaler)
-    X_earlystop, y_earlystop, _ = build_windows(
+    X_earlystop, y_earlystop, _, _ = build_windows(
         earlystop_df, feature_cols, CONFIG["eval_stride"], scaler)
-    X_within, y_within, bnd_within = build_windows(
+    X_within, y_within, bnd_within, seq_labels_within = build_windows(
         within_val_df, feature_cols, CONFIG["eval_stride"], scaler)
-    X_cross, y_cross, bnd_cross = build_windows(
+    X_cross, y_cross, bnd_cross, _ = build_windows(
         cross_val_df, feature_cols, CONFIG["eval_stride"], scaler)
 
     n_feat = len(feature_cols)
@@ -1154,6 +1123,26 @@ def main():
     t2 = float(np.percentile(y_train.flatten(), CONFIG["t2_percentile"]))
     print(f"  Thresholds: t1={t1:.4f} (p{CONFIG['t1_percentile']}), "
           f"t2={t2:.4f} (p{CONFIG['t2_percentile']})", file=sys.stderr)
+
+    # ── Stability test (evidential only) ──
+    if args.stability:
+        stability_seeds = [42, 123, 456]
+        stability_mses = {}
+        for seed in stability_seeds:
+            random.seed(seed)
+            torch.manual_seed(seed)
+            np.random.seed(seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(seed)
+            model = train_evidential(X_train, y_train, X_earlystop, y_earlystop,
+                                     n_feat, n_steps, device)
+            m = eval_evidential(model, X_within, y_within, device, t1, t2, bnd_within)
+            stability_mses[seed] = m["mse"]
+        mse_vals = list(stability_mses.values())
+        mse_range = max(mse_vals) - min(mse_vals)
+        parts = " ".join(f"seed {s} mse={v:.6f}," for s, v in stability_mses.items())
+        print(f"STABILITY: {parts} range={mse_range:.6f}", file=sys.stderr)
+        sys.exit(0)
 
     # ═════════════════════════════════════════════════════════════
     # TRAIN SINGLE MODEL BASED ON MODE
@@ -1216,6 +1205,27 @@ def main():
               f"cls_acc_cdf={m_cross['cls_acc_cdf']:.3f} "
               f"unc_sep={m_cross['unc_separation']:.4f}", file=sys.stderr)
 
+    # ── Per-intersection within-MSE breakdown ──
+    seq_arr = np.array(seq_labels_within)
+    per_int_parts = []
+    for int_name in CONFIG["train_intersections"]:
+        mask = seq_arr == int_name
+        if mask.sum() > 0:
+            if mode == "lstm":
+                int_mse = float(mean_squared_error(y_within_mean[mask], pred_within[mask]))
+            else:
+                gamma_within = evid_model.predict(
+                    torch.from_numpy(X_within[mask]).to(device))[0].cpu().numpy().mean(axis=1)
+                int_mse = float(mean_squared_error(y_within_mean[mask], gamma_within))
+            short_name = int_name.split("_")[-1]
+            per_int_parts.append(f"{short_name}={int_mse:.3f}")
+    if per_int_parts:
+        print(f"  Per-intersection within-MSE: {' '.join(per_int_parts)}", file=sys.stderr)
+
+    # ── Cross/within MSE ratio diagnostic ──
+    print(f"  DIAGNOSTIC: cross_mse/within_mse = {m_cross['mse']/m_within['mse']:.2f}",
+          file=sys.stderr)
+
     elapsed = time.time() - t0
     print(f"\n  {model_name}  Time: {elapsed:.1f}s", file=sys.stderr)
 
@@ -1255,6 +1265,8 @@ def main():
         f"cls_acc_cross={m_cross['cls_acc']:.6f}",
         f"cls_trans_within={m_within['cls_trans_acc']:.6f}",
         f"cls_trans_cross={m_cross['cls_trans_acc']:.6f}",
+        f"majority_acc_within={m_within['majority_acc']:.6f}",
+        f"majority_acc_cross={m_cross['majority_acc']:.6f}",
     ]
 
     if mode == "evidential":
