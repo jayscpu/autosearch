@@ -83,14 +83,14 @@ CONFIG = {
     "t2_percentile": 85,      # moderate/hard boundary
 
     # ── Architecture (shared by LSTM and EvidentialLSTM) ──
-    "hidden_size": 512,
+    "hidden_size": 256,
     "n_layers": 3,
     "dropout": 0.2,
 
     # ── Training ──
     "lr": 1e-3,
     "weight_decay": 1e-5,
-    "batch_size": 32,
+    "batch_size": 16,
     "max_epochs": 300,
     "patience": 40,
     "grad_clip": 1.0,

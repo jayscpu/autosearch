@@ -51,7 +51,7 @@ CONFIG = {
     "mode": "evidential",
 
     # ── Features ──
-    "features": [f for f in ALL_FEATURES if f not in ("det_count_small", "det_confidence_small")],
+    "features": ALL_FEATURES,
 
     # ── Target ──
     "target": "miss_rate",
