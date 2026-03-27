@@ -38,7 +38,7 @@ from scipy import stats as scipy_stats
 from scipy.stats import spearmanr
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from pod_features import ALL_FEATURES, TOP_35_SPEARMAN
+from pod_features import ALL_FEATURES, SPATIAL_65, NEW_FEATURES, TOP_35_SPEARMAN
 
 warnings.filterwarnings("ignore")
 
@@ -51,7 +51,7 @@ CONFIG = {
     "mode": "evidential",
 
     # ── Features ──
-    "features": TOP_35_SPEARMAN,
+    "features": [f for f in ALL_FEATURES if f not in ("det_count_small", "det_confidence_small")],
 
     # ── Target ──
     "target": "miss_rate",
@@ -60,9 +60,9 @@ CONFIG = {
     "window": 30,
     "horizon": 30,
     "sub_window": 6,          # multi-step: each step predicts mean over sub_window frames
-    "train_stride": 10,
+    "train_stride": 6,
     "eval_stride": 30,
-    "warmup_frames": 200,      # skip first N frames per video (MOG2 bg model warm-up)
+    "warmup_frames": 300,      # skip first N frames per video (MOG2 bg model warm-up)
 
     # ── Intersections ──
     "train_intersections": [
@@ -79,12 +79,12 @@ CONFIG = {
     "lambda1": 0.3,           # evidence regularizer weight
 
     # ── Difficulty Thresholds (percentiles of training miss_rate) ──
-    "t1_percentile": 10,      # easy/moderate boundary
+    "t1_percentile": 20,      # easy/moderate boundary
     "t2_percentile": 85,      # moderate/hard boundary
 
     # ── Architecture (shared by LSTM and EvidentialLSTM) ──
     "hidden_size": 128,
-    "n_layers": 2,
+    "n_layers": 4,
     "dropout": 0.4,
 
     # ── Training ──
@@ -1222,7 +1222,7 @@ def main():
                 int_mse = float(mean_squared_error(y_within_mean[mask], pred_within[mask]))
             else:
                 gamma_within = evid_model.predict(
-                    torch.from_numpy(X_within[mask]).to(device))[0].cpu().numpy().mean(axis=1)
+                    torch.from_numpy(X_within[mask]).to(device))[0].detach().cpu().numpy().mean(axis=1)
                 int_mse = float(mean_squared_error(y_within_mean[mask], gamma_within))
             short_name = int_name.split("_")[-1]
             per_int_parts.append(f"{short_name}={int_mse:.3f}")

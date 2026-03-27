@@ -38,7 +38,7 @@ from scipy import stats as scipy_stats
 from scipy.stats import spearmanr
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from pod_features import ALL_FEATURES, TOP_35_SPEARMAN
+from pod_features import ALL_FEATURES, SPATIAL_65, TOP_35_SPEARMAN
 
 warnings.filterwarnings("ignore")
 
@@ -51,15 +51,15 @@ CONFIG = {
     "mode": "lstm",
 
     # ── Features ──
-    "features": TOP_35_SPEARMAN,
+    "features": ALL_FEATURES,
 
     # ── Target ──
     "target": "miss_rate",
 
     # ── Windowing ──
-    "window": 30,
+    "window": 40,
     "horizon": 30,
-    "sub_window": 6,          # multi-step: each step predicts mean over sub_window frames
+    "sub_window": 10,          # multi-step: each step predicts mean over sub_window frames
     "train_stride": 10,
     "eval_stride": 30,
     "warmup_frames": 200,      # skip first N frames per video (MOG2 bg model warm-up)
@@ -79,18 +79,18 @@ CONFIG = {
     "lambda1": 0.3,           # evidence regularizer weight
 
     # ── Difficulty Thresholds (percentiles of training miss_rate) ──
-    "t1_percentile": 10,      # easy/moderate boundary
+    "t1_percentile": 20,      # easy/moderate boundary
     "t2_percentile": 85,      # moderate/hard boundary
 
     # ── Architecture (shared by LSTM and EvidentialLSTM) ──
-    "hidden_size": 128,
-    "n_layers": 2,
-    "dropout": 0.4,
+    "hidden_size": 512,
+    "n_layers": 3,
+    "dropout": 0.2,
 
     # ── Training ──
     "lr": 1e-3,
     "weight_decay": 1e-5,
-    "batch_size": 64,
+    "batch_size": 32,
     "max_epochs": 300,
     "patience": 40,
     "grad_clip": 1.0,

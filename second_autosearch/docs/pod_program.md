@@ -204,13 +204,16 @@ test.
 
 ## CRASH SAFETY
 
+No git during sweeps. The TSV file is the experiment log.
+
 Before each experiment:
-1. git add -A && git commit -m "pre-exp NNN"
-2. Edit pod_train.py
+1. Note current CONFIG values
+2. Edit pod_train.py (or pod_train_evid.py)
 3. Run experiment
-4. Append to the sweep's results TSV (pod_results_lstm.tsv or pod_results_evid.tsv)
-5. git add -A && git commit -m "exp NNN: description — mse=X unc_sep=X cls_acc=X [keep/discard]"
-6. If discard: git checkout HEAD~1 -- pod_train.py && git commit -m "revert exp NNN"
+4. Append to results TSV
+5. If discard: revert the CONFIG change manually in the script
+
+That's it. No git.
 
 ## Constraints
 
