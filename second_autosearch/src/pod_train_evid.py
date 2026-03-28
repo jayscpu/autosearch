@@ -62,7 +62,7 @@ CONFIG = {
     "sub_window": 6,          # multi-step: each step predicts mean over sub_window frames
     "train_stride": 6,
     "eval_stride": 30,
-    "warmup_frames": 300,      # skip first N frames per video (MOG2 bg model warm-up)
+    "warmup_frames": 400,      # skip first N frames per video (MOG2 bg model warm-up)
 
     # ── Single-camera mode (None = normal 4-cam mode) ──
     "single_cam": None,  # set to intersection name for 1CAM mode
@@ -82,8 +82,8 @@ CONFIG = {
     "lambda1": 0.25,           # evidence regularizer weight
 
     # ── Difficulty Thresholds (percentiles of training miss_rate) ──
-    "t1_percentile": 20,      # easy/moderate boundary
-    "t2_percentile": 90,      # moderate/hard boundary
+    "t1_percentile": 25,      # easy/moderate boundary
+    "t2_percentile": 85,      # moderate/hard boundary
     "t1_absolute": None,      # override percentile with absolute threshold
     "t2_absolute": None,      # override percentile with absolute threshold
 
