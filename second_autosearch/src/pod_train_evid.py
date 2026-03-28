@@ -51,7 +51,7 @@ CONFIG = {
     "mode": "evidential",
 
     # ── Features ──
-    "features": SPATIAL_65,
+    "features": TOP_35_SPEARMAN,
 
     # ── Target ──
     "target": "miss_rate",
@@ -62,10 +62,10 @@ CONFIG = {
     "sub_window": 6,          # multi-step: each step predicts mean over sub_window frames
     "train_stride": 6,
     "eval_stride": 30,
-    "warmup_frames": 0,      # skip first N frames per video (MOG2 bg model warm-up)
+    "warmup_frames": 300,      # skip first N frames per video (MOG2 bg model warm-up)
 
     # ── Single-camera mode (None = normal 4-cam mode) ──
-    "single_cam": "Bellevue_150th_Eastgate",  # set to intersection name for 1CAM mode
+    "single_cam": "Bellevue_Bellevue_NE8th",  # set to intersection name for 1CAM mode
 
     # ── Intersections ──
     "train_intersections": [
