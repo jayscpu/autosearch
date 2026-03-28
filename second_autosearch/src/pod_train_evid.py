@@ -48,7 +48,7 @@ warnings.filterwarnings("ignore")
 
 CONFIG = {
     # ── Mode ── ("lstm" or "evidential")
-    "mode": "evidential",
+    "mode": "lstm",
 
     # ── Features ──
     "features": TOP_35_SPEARMAN,
@@ -88,18 +88,18 @@ CONFIG = {
     "t2_absolute": None,      # override percentile with absolute threshold
 
     # ── Architecture (shared by LSTM and EvidentialLSTM) ──
-    "hidden_size": 64,
-    "n_layers": 3,
+    "hidden_size": 96,
+    "n_layers": 4,
     "dropout": 0.3,
 
     # ── Training ──
-    "lr": 1e-3,
+    "lr": 3e-3,
     "weight_decay": 1e-5,
     "batch_size": 64,
     "max_epochs": 300,
     "patience": 40,
     "grad_clip": 1.0,
-    "seeds": [42, 123, 456],  # LSTM ensemble seeds
+    "seeds": [42],  # single seed for PlainLSTM sweep
 
     # ── RF ──
     "rf_n_estimators": 500,
