@@ -51,7 +51,7 @@ CONFIG = {
     "mode": "lstm",
 
     # ── Features ──
-    "features": TOP_35_SPEARMAN,
+    "features": SPATIAL_65,
 
     # ── Target ──
     "target": "miss_rate",
@@ -62,10 +62,10 @@ CONFIG = {
     "sub_window": 6,          # multi-step: each step predicts mean over sub_window frames
     "train_stride": 6,
     "eval_stride": 30,
-    "warmup_frames": 300,      # skip first N frames per video (MOG2 bg model warm-up)
+    "warmup_frames": 400,      # skip first N frames per video (MOG2 bg model warm-up)
 
     # ── Single-camera mode (None = normal 4-cam mode) ──
-    "single_cam": "Bellevue_Bellevue_NE8th",  # set to intersection name for 1CAM mode
+    "single_cam": None,  # set to intersection name for 1CAM mode
 
     # ── Intersections ──
     "train_intersections": [
@@ -82,18 +82,18 @@ CONFIG = {
     "lambda1": 0.25,           # evidence regularizer weight
 
     # ── Difficulty Thresholds (percentiles of training miss_rate) ──
-    "t1_percentile": 10,      # easy/moderate boundary
-    "t2_percentile": 70,      # moderate/hard boundary
+    "t1_percentile": 25,      # easy/moderate boundary
+    "t2_percentile": 90,      # moderate/hard boundary
     "t1_absolute": None,      # override percentile with absolute threshold
     "t2_absolute": None,      # override percentile with absolute threshold
 
     # ── Architecture (shared by LSTM and EvidentialLSTM) ──
-    "hidden_size": 96,
+    "hidden_size": 256,
     "n_layers": 4,
-    "dropout": 0.3,
+    "dropout": 0.4,
 
     # ── Training ──
-    "lr": 3e-3,
+    "lr": 1e-3,
     "weight_decay": 1e-5,
     "batch_size": 64,
     "max_epochs": 300,
