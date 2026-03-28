@@ -83,7 +83,7 @@ CONFIG = {
 
     # ── Difficulty Thresholds (percentiles of training miss_rate) ──
     "t1_percentile": 25,      # easy/moderate boundary
-    "t2_percentile": 85,      # moderate/hard boundary
+    "t2_percentile": 90,      # moderate/hard boundary
     "t1_absolute": None,      # override percentile with absolute threshold
     "t2_absolute": None,      # override percentile with absolute threshold
 
