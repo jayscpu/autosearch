@@ -62,10 +62,10 @@ CONFIG = {
     "sub_window": 6,          # multi-step: each step predicts mean over sub_window frames
     "train_stride": 6,
     "eval_stride": 30,
-    "warmup_frames": 0,      # skip first N frames per video (MOG2 bg model warm-up)
+    "warmup_frames": 300,      # skip first N frames per video (MOG2 bg model warm-up)
 
     # ── Single-camera mode (None = normal 4-cam mode) ──
-    "single_cam": "Bellevue_150th_Eastgate",  # set to intersection name for 1CAM mode
+    "single_cam": "Bellevue_Bellevue_NE8th",  # set to intersection name for 1CAM mode
 
     # ── Intersections ──
     "train_intersections": [
@@ -84,10 +84,12 @@ CONFIG = {
     # ── Difficulty Thresholds (percentiles of training miss_rate) ──
     "t1_percentile": 10,      # easy/moderate boundary
     "t2_percentile": 70,      # moderate/hard boundary
+    "t1_absolute": None,      # override percentile with absolute threshold
+    "t2_absolute": None,      # override percentile with absolute threshold
 
     # ── Architecture (shared by LSTM and EvidentialLSTM) ──
     "hidden_size": 64,
-    "n_layers": 3,
+    "n_layers": 4,
     "dropout": 0.3,
 
     # ── Training ──
@@ -1143,9 +1145,15 @@ def main():
         run_feature_selection(train_df, feature_cols, X_train, y_train,
                               n_feat, device)
 
-    # Difficulty thresholds from training data
-    t1 = float(np.percentile(y_train.flatten(), CONFIG["t1_percentile"]))
-    t2 = float(np.percentile(y_train.flatten(), CONFIG["t2_percentile"]))
+    # Difficulty thresholds from training data (or absolute override)
+    if CONFIG.get("t1_absolute") is not None:
+        t1 = float(CONFIG["t1_absolute"])
+    else:
+        t1 = float(np.percentile(y_train.flatten(), CONFIG["t1_percentile"]))
+    if CONFIG.get("t2_absolute") is not None:
+        t2 = float(CONFIG["t2_absolute"])
+    else:
+        t2 = float(np.percentile(y_train.flatten(), CONFIG["t2_percentile"]))
     print(f"  Thresholds: t1={t1:.4f} (p{CONFIG['t1_percentile']}), "
           f"t2={t2:.4f} (p{CONFIG['t2_percentile']})", file=sys.stderr)
 
