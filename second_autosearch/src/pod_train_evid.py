@@ -65,7 +65,7 @@ CONFIG = {
     "warmup_frames": 300,      # skip first N frames per video (MOG2 bg model warm-up)
 
     # ── Single-camera mode (None = normal 4-cam mode) ──
-    "single_cam": "Bellevue_Bellevue_NE8th",  # set to intersection name for 1CAM mode
+    "single_cam": None,  # set to intersection name for 1CAM mode
 
     # ── Intersections ──
     "train_intersections": [
@@ -82,15 +82,15 @@ CONFIG = {
     "lambda1": 0.25,           # evidence regularizer weight
 
     # ── Difficulty Thresholds (percentiles of training miss_rate) ──
-    "t1_percentile": 10,      # easy/moderate boundary
-    "t2_percentile": 70,      # moderate/hard boundary
+    "t1_percentile": 20,      # easy/moderate boundary
+    "t2_percentile": 90,      # moderate/hard boundary
     "t1_absolute": None,      # override percentile with absolute threshold
     "t2_absolute": None,      # override percentile with absolute threshold
 
     # ── Architecture (shared by LSTM and EvidentialLSTM) ──
-    "hidden_size": 64,
+    "hidden_size": 128,
     "n_layers": 4,
-    "dropout": 0.3,
+    "dropout": 0.4,
 
     # ── Training ──
     "lr": 1e-3,
