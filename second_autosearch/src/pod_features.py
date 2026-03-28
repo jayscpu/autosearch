@@ -50,6 +50,15 @@ NEW_FEATURES = [
 # Combined full feature set
 ALL_FEATURES = SPATIAL_65 + NEW_FEATURES
 
+# Delta (rate-of-change) features — computed from CSV before windowing
+DELTA_BASE_FEATURES = [
+    "foreground_blob_count", "foreground_pixel_ratio", "motion_pixel_ratio",
+    "temporal_diff_mean", "optical_flow_magnitude_mean", "edge_density_coarse",
+    "image_entropy", "mean_brightness",
+]
+DELTA_FEATURES = [f"delta5_{f}" for f in DELTA_BASE_FEATURES] + \
+                 [f"delta10_{f}" for f in DELTA_BASE_FEATURES]
+
 # Top-35 Spearman features from Fresno (kept for backward compatibility)
 TOP_35_SPEARMAN = [
     "glcm_entropy", "image_entropy", "glcm_energy", "brightness_std",

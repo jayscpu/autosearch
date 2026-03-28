@@ -38,7 +38,7 @@ from scipy import stats as scipy_stats
 from scipy.stats import spearmanr
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from pod_features import ALL_FEATURES, SPATIAL_65, NEW_FEATURES, TOP_35_SPEARMAN
+from pod_features import ALL_FEATURES, SPATIAL_65, NEW_FEATURES, TOP_35_SPEARMAN, DELTA_BASE_FEATURES, DELTA_FEATURES
 
 warnings.filterwarnings("ignore")
 
@@ -48,7 +48,7 @@ warnings.filterwarnings("ignore")
 
 CONFIG = {
     # ── Mode ── ("lstm" or "evidential")
-    "mode": "lstm",
+    "mode": "evidential",
 
     # ── Features ──
     "features": SPATIAL_65,
@@ -88,7 +88,7 @@ CONFIG = {
     "t2_absolute": None,      # override percentile with absolute threshold
 
     # ── Architecture (shared by LSTM and EvidentialLSTM) ──
-    "hidden_size": 256,
+    "hidden_size": 128,
     "n_layers": 4,
     "dropout": 0.4,
 
@@ -115,6 +115,12 @@ CONFIG = {
     "rf_feature_importance": False,
     "permutation_importance": False,
     "gradient_feature_selection": False,
+    # ── Transition-weighted loss ──
+    "transition_loss_weight": 0,  # 0 = disabled; >0 = multiply MSE for transition windows
+
+    # ── Delta features ──
+    "use_delta_features": False,  # add delta_5/delta_10 rate-of-change features
+
     "sffs_feature_selection": False,  # Sequential Forward Floating Selection (slow, ~1-2hr)
     "sffs_max_features": 50,          # stop SFFS after this many features
     "sffs_start_features": None,      # list of features to start from (None = empty)
@@ -140,6 +146,26 @@ def load_data():
     if CONFIG["target"] == "miss_rate":
         # x_count=0 → miss_rate=0 (no vehicles to miss); clip prevents div-by-zero
         df["miss_rate"] = df["fn_nano"] / df["x_count"].clip(lower=1)
+
+    # Compute delta (rate-of-change) features per sequence+video group
+    if CONFIG.get("use_delta_features"):
+        group_cols = ["sequence", "video"] if "video" in df.columns else ["sequence"]
+        for base_feat in DELTA_BASE_FEATURES:
+            if base_feat not in df.columns:
+                continue
+            df[f"delta5_{base_feat}"] = 0.0
+            df[f"delta10_{base_feat}"] = 0.0
+        parts = []
+        for _, gdf in df.groupby(group_cols):
+            gdf = gdf.sort_values("frame_id").copy()
+            for base_feat in DELTA_BASE_FEATURES:
+                if base_feat not in gdf.columns:
+                    continue
+                gdf[f"delta5_{base_feat}"] = gdf[base_feat].diff(5).fillna(0.0)
+                gdf[f"delta10_{base_feat}"] = gdf[base_feat].diff(10).fillna(0.0)
+            parts.append(gdf)
+        df = pd.concat(parts, ignore_index=True)
+
     return df
 
 
@@ -214,6 +240,7 @@ def build_windows(df, feature_cols, stride, scaler):
 
     X_list, y_list = [], []
     seq_labels = []
+    input_target_means = []  # mean target over input window (for transition weighting)
     # Track the first index of each video group so transition_accuracy can
     # skip comparisons at video boundaries (those pairs aren't temporal neighbours)
     boundary_indices = set()
@@ -252,10 +279,29 @@ def build_windows(df, feature_cols, stride, scaler):
 
             y_list.append(targets)
             seq_labels.append(seq_name)
+            input_target_means.append(target_vals[t:t + W].mean())
 
     X = np.array(X_list, dtype=np.float32)
     y = np.array(y_list, dtype=np.float32)  # shape: (N, n_steps)
-    return X, y, boundary_indices, seq_labels
+
+    # Compute per-sample transition weights for transition-weighted loss
+    tw = CONFIG.get("transition_loss_weight", 0)
+    if tw > 0 and len(input_target_means) > 0:
+        y_flat = y.flatten()
+        t1_approx = float(np.percentile(y_flat, CONFIG["t1_percentile"]))
+        t2_approx = float(np.percentile(y_flat, CONFIG["t2_percentile"]))
+        sample_weights = np.ones(len(y), dtype=np.float32)
+        input_means = np.array(input_target_means, dtype=np.float32)
+        pred_means = y.mean(axis=1)
+        for i in range(len(y)):
+            in_cls = 0 if input_means[i] < t1_approx else (2 if input_means[i] >= t2_approx else 1)
+            pr_cls = 0 if pred_means[i] < t1_approx else (2 if pred_means[i] >= t2_approx else 1)
+            if in_cls != pr_cls:
+                sample_weights[i] = tw
+    else:
+        sample_weights = np.ones(len(y), dtype=np.float32)
+
+    return X, y, boundary_indices, seq_labels, sample_weights
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -478,9 +524,9 @@ def _sffs_eval_rf(feature_subset, train_df, within_val_df):
     scaler = StandardScaler()
     scaler.fit(train_df[feature_subset].values)
 
-    X_train, y_train, _, _ = build_windows(
+    X_train, y_train, _, _, _ = build_windows(
         train_df, feature_subset, CONFIG["train_stride"], scaler)
-    X_val, y_val, _, _ = build_windows(
+    X_val, y_val, _, _, _ = build_windows(
         within_val_df, feature_subset, CONFIG["eval_stride"], scaler)
 
     if len(y_val) == 0 or len(y_train) == 0:
@@ -756,6 +802,20 @@ def nig_loss(gamma, nu, alpha, beta, y):
     return loss.mean()
 
 
+def nig_loss_weighted(gamma, nu, alpha, beta, y, weights):
+    """NIG loss with per-sample weighting for transition-weighted training."""
+    omega = 2.0 * beta * (1.0 + nu)
+    nll = (0.5 * torch.log(np.pi / nu)
+           - alpha * torch.log(omega)
+           + (alpha + 0.5) * torch.log((y - gamma) ** 2 * nu + omega)
+           + torch.lgamma(alpha) - torch.lgamma(alpha + 0.5))
+    error = torch.abs(y - gamma)
+    evidence = 2.0 * nu + (alpha - 1.0)
+    reg_evidence = error * evidence
+    per_sample = (nll + CONFIG["lambda1"] * reg_evidence).mean(dim=1)  # mean over steps
+    return (per_sample * weights).mean()
+
+
 # ═══════════════════════════════════════════════════════════════════
 # STUDENT-T CDF → 3-CLASS PROBABILITIES
 # ═══════════════════════════════════════════════════════════════════
@@ -798,11 +858,20 @@ def nig_to_class_probs(gamma, nu, alpha, beta, t1, t2):
 # TRAINING — PLAIN LSTM
 # ═══════════════════════════════════════════════════════════════════
 
-def train_plain(X_train, y_train, X_val, y_val, n_feat, n_steps, device):
+def train_plain(X_train, y_train, X_val, y_val, n_feat, n_steps, device,
+                sample_weights=None):
     model = PlainLSTM(input_size=n_feat, n_steps=n_steps).to(device)
-    train_loader = DataLoader(
-        TensorDataset(torch.from_numpy(X_train), torch.from_numpy(y_train)),
-        batch_size=CONFIG["batch_size"], shuffle=True)
+    if sample_weights is not None and CONFIG.get("transition_loss_weight", 0) > 0:
+        train_loader = DataLoader(
+            TensorDataset(torch.from_numpy(X_train), torch.from_numpy(y_train),
+                          torch.from_numpy(sample_weights)),
+            batch_size=CONFIG["batch_size"], shuffle=True)
+        use_weights = True
+    else:
+        train_loader = DataLoader(
+            TensorDataset(torch.from_numpy(X_train), torch.from_numpy(y_train)),
+            batch_size=CONFIG["batch_size"], shuffle=True)
+        use_weights = False
     val_x = torch.from_numpy(X_val).to(device)
     val_y = torch.from_numpy(y_val).to(device)
 
@@ -816,9 +885,19 @@ def train_plain(X_train, y_train, X_val, y_val, n_feat, n_steps, device):
 
     for epoch in range(CONFIG["max_epochs"]):
         model.train()
-        for xb, yb in train_loader:
-            xb, yb = xb.to(device), yb.to(device)
-            loss = mse_loss(model(xb), yb)
+        for batch in train_loader:
+            if use_weights:
+                xb, yb, wb = batch
+                xb, yb, wb = xb.to(device), yb.to(device), wb.to(device)
+            else:
+                xb, yb = batch
+                xb, yb = xb.to(device), yb.to(device)
+            pred = model(xb)
+            if use_weights:
+                per_sample = ((pred - yb) ** 2).mean(dim=1)  # MSE per sample
+                loss = (per_sample * wb).mean()
+            else:
+                loss = mse_loss(pred, yb)
             if torch.isnan(loss):
                 continue
             optimizer.zero_grad()
@@ -850,13 +929,22 @@ def train_plain(X_train, y_train, X_val, y_val, n_feat, n_steps, device):
 # TRAINING — EVIDENTIAL LSTM
 # ═══════════════════════════════════════════════════════════════════
 
-def train_evidential(X_train, y_train, X_val, y_val, n_feat, n_steps, device):
+def train_evidential(X_train, y_train, X_val, y_val, n_feat, n_steps, device,
+                     sample_weights=None):
     model = EvidentialLSTM(input_size=n_feat, n_steps=n_steps).to(device)
     print(f"  Params: {sum(p.numel() for p in model.parameters()):,}", file=sys.stderr)
 
-    train_loader = DataLoader(
-        TensorDataset(torch.from_numpy(X_train), torch.from_numpy(y_train)),
-        batch_size=CONFIG["batch_size"], shuffle=True)
+    if sample_weights is not None and CONFIG.get("transition_loss_weight", 0) > 0:
+        train_loader = DataLoader(
+            TensorDataset(torch.from_numpy(X_train), torch.from_numpy(y_train),
+                          torch.from_numpy(sample_weights)),
+            batch_size=CONFIG["batch_size"], shuffle=True)
+        use_weights = True
+    else:
+        train_loader = DataLoader(
+            TensorDataset(torch.from_numpy(X_train), torch.from_numpy(y_train)),
+            batch_size=CONFIG["batch_size"], shuffle=True)
+        use_weights = False
     val_x = torch.from_numpy(X_val).to(device)
     val_y = torch.from_numpy(y_val).to(device)
 
@@ -869,10 +957,18 @@ def train_evidential(X_train, y_train, X_val, y_val, n_feat, n_steps, device):
 
     for epoch in range(CONFIG["max_epochs"]):
         model.train()
-        for xb, yb in train_loader:
-            xb, yb = xb.to(device), yb.to(device)
+        for batch in train_loader:
+            if use_weights:
+                xb, yb, wb = batch
+                xb, yb, wb = xb.to(device), yb.to(device), wb.to(device)
+            else:
+                xb, yb = batch
+                xb, yb = xb.to(device), yb.to(device)
             gamma, nu, alpha, beta = model(xb)
-            loss = nig_loss(gamma, nu, alpha, beta, yb)
+            if use_weights:
+                loss = nig_loss_weighted(gamma, nu, alpha, beta, yb, wb)
+            else:
+                loss = nig_loss(gamma, nu, alpha, beta, yb)
 
             if torch.isnan(loss):
                 print(f"  WARNING: NaN loss at epoch {epoch}", file=sys.stderr)
@@ -1051,7 +1147,10 @@ def main():
     print(f"  Results file: {results_file}", file=sys.stderr)
 
     df = load_data()
-    feature_cols = CONFIG["features"]
+    feature_cols = list(CONFIG["features"])
+    if CONFIG.get("use_delta_features"):
+        feature_cols = feature_cols + DELTA_FEATURES
+        print(f"  Delta features enabled: +{len(DELTA_FEATURES)} features", file=sys.stderr)
     target_col = get_target_column()
 
     missing = [f for f in feature_cols if f not in df.columns]
@@ -1111,13 +1210,13 @@ def main():
     scaler.fit(scaler_df[feature_cols].values)
 
     # Build windows for all 4 sets
-    X_train, y_train, _, _ = build_windows(
+    X_train, y_train, _, _, train_weights = build_windows(
         train_df, feature_cols, CONFIG["train_stride"], scaler)
-    X_earlystop, y_earlystop, _, _ = build_windows(
+    X_earlystop, y_earlystop, _, _, _ = build_windows(
         earlystop_df, feature_cols, CONFIG["eval_stride"], scaler)
-    X_within, y_within, bnd_within, seq_labels_within = build_windows(
+    X_within, y_within, bnd_within, seq_labels_within, _ = build_windows(
         within_val_df, feature_cols, CONFIG["eval_stride"], scaler)
-    X_cross, y_cross, bnd_cross, _ = build_windows(
+    X_cross, y_cross, bnd_cross, _, _ = build_windows(
         cross_val_df, feature_cols, CONFIG["eval_stride"], scaler)
 
     n_feat = len(feature_cols)
@@ -1168,7 +1267,7 @@ def main():
             if torch.cuda.is_available():
                 torch.cuda.manual_seed_all(seed)
             model = train_evidential(X_train, y_train, X_earlystop, y_earlystop,
-                                     n_feat, n_steps, device)
+                                     n_feat, n_steps, device, train_weights)
             m = eval_evidential(model, X_within, y_within, device, t1, t2, bnd_within)
             stability_mses[seed] = m["mse"]
         mse_vals = list(stability_mses.values())
@@ -1192,7 +1291,7 @@ def main():
             if torch.cuda.is_available():
                 torch.cuda.manual_seed_all(seed)
             model = train_plain(X_train, y_train, X_earlystop, y_earlystop,
-                                n_feat, n_steps, device)
+                                n_feat, n_steps, device, train_weights)
             with torch.no_grad():
                 pw = model(torch.from_numpy(X_within).to(device)).cpu().numpy()
                 pc = model(torch.from_numpy(X_cross).to(device)).cpu().numpy()
@@ -1223,7 +1322,7 @@ def main():
             torch.cuda.manual_seed_all(42)
 
         evid_model = train_evidential(X_train, y_train, X_earlystop, y_earlystop,
-                                      n_feat, n_steps, device)
+                                      n_feat, n_steps, device, train_weights)
 
         m_within = eval_evidential(evid_model, X_within, y_within, device, t1, t2, bnd_within)
         m_cross = eval_evidential(evid_model, X_cross, y_cross, device, t1, t2, bnd_cross)
@@ -1286,6 +1385,10 @@ def main():
     }
     if mode == "evidential":
         config_summary["lambda1"] = CONFIG["lambda1"]
+    if CONFIG.get("transition_loss_weight", 0) > 0:
+        config_summary["transition_loss_weight"] = CONFIG["transition_loss_weight"]
+    if CONFIG.get("use_delta_features"):
+        config_summary["use_delta_features"] = True
 
     result_fields = [
         "RESULT",
