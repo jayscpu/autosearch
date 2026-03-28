@@ -97,7 +97,7 @@ CONFIG = {
     "weight_decay": 1e-5,
     "batch_size": 64,
     "max_epochs": 300,
-    "patience": 60,
+    "patience": 25,
     "grad_clip": 1.0,
     "seeds": [42, 123, 456],  # LSTM ensemble seeds
 
