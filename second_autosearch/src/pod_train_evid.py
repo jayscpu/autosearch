@@ -51,7 +51,7 @@ CONFIG = {
     "mode": "evidential",
 
     # ── Features ──
-    "features": ALL_FEATURES,
+    "features": SPATIAL_65,
 
     # ── Target ──
     "target": "miss_rate",
@@ -62,7 +62,10 @@ CONFIG = {
     "sub_window": 6,          # multi-step: each step predicts mean over sub_window frames
     "train_stride": 6,
     "eval_stride": 30,
-    "warmup_frames": 300,      # skip first N frames per video (MOG2 bg model warm-up)
+    "warmup_frames": 0,      # skip first N frames per video (MOG2 bg model warm-up)
+
+    # ── Single-camera mode (None = normal 4-cam mode) ──
+    "single_cam": "Bellevue_150th_Eastgate",  # set to intersection name for 1CAM mode
 
     # ── Intersections ──
     "train_intersections": [
@@ -76,23 +79,23 @@ CONFIG = {
     "earlystop_fraction": 0.60,   # cumulative: 50-60% = early-stop, 60-100% = within-val
 
     # ── NIG Loss Hyperparameters (EvidentialLSTM) ──
-    "lambda1": 0.3,           # evidence regularizer weight
+    "lambda1": 0.25,           # evidence regularizer weight
 
     # ── Difficulty Thresholds (percentiles of training miss_rate) ──
-    "t1_percentile": 20,      # easy/moderate boundary
-    "t2_percentile": 85,      # moderate/hard boundary
+    "t1_percentile": 10,      # easy/moderate boundary
+    "t2_percentile": 70,      # moderate/hard boundary
 
     # ── Architecture (shared by LSTM and EvidentialLSTM) ──
-    "hidden_size": 128,
-    "n_layers": 4,
-    "dropout": 0.4,
+    "hidden_size": 64,
+    "n_layers": 3,
+    "dropout": 0.3,
 
     # ── Training ──
     "lr": 1e-3,
     "weight_decay": 1e-5,
     "batch_size": 64,
     "max_epochs": 300,
-    "patience": 40,
+    "patience": 60,
     "grad_clip": 1.0,
     "seeds": [42, 123, 456],  # LSTM ensemble seeds
 
@@ -157,7 +160,22 @@ def split_data(df):
       [50% .. 60%)  → early-stop (used only for checkpoint selection)
       [60% .. 100%] → within-camera val (never seen during training)
     Held-out intersection → cross-camera val.
+
+    Single-cam mode: train/eval on one intersection only, no cross-camera.
     """
+    single_cam = CONFIG.get("single_cam")
+    if single_cam:
+        sub = df[df["sequence"] == single_cam].sort_values("frame_id")
+        n = len(sub)
+        train_end = int(n * CONFIG["train_fraction"])
+        earlystop_end = int(n * CONFIG["earlystop_fraction"])
+        train_df = sub.iloc[:train_end].reset_index(drop=True)
+        earlystop_df = sub.iloc[train_end:earlystop_end].reset_index(drop=True)
+        within_val_df = sub.iloc[earlystop_end:].reset_index(drop=True)
+        # No cross-camera in single-cam mode — use within-val as placeholder
+        cross_val_df = within_val_df.copy()
+        return train_df, earlystop_df, within_val_df, cross_val_df
+
     train_ints = CONFIG["train_intersections"]
     test_int = CONFIG["test_intersection"]
 
