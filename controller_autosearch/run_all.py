@@ -345,11 +345,24 @@ def process_prediction_file(csv_path: str, skip_dqn: bool = False,
               f"adequate={proxy_test['adequate_rate']:.3f}")
         all_results.append(proxy_test)
 
-    # ── Pareto frontier sweep (on test data) ─────────────────────────────
-    print("\n── Pareto Frontier Sweep (test) ──")
-    pareto_results = pareto_sweep(
-        test["pred_miss_rates"], test["true_miss_rates"],
-        t1_eval, t2_eval, MODELS, epistemic_unc=test["epistemic_unc"])
+    # ── Pareto frontier sweep (optimized on train, reported on test) ─────
+    print("\n── Pareto Frontier Sweep ──")
+    # Step 1: find best configs at each constraint level on TRAIN
+    pareto_train = pareto_sweep(
+        train["pred_miss_rates"], train["true_miss_rates"],
+        t1_eval, t2_eval, MODELS, epistemic_unc=train["epistemic_unc"])
+
+    # Step 2: re-evaluate each winning config on TEST
+    pareto_results = []
+    for constraint, _train_savings, _train_adq, cfg in pareto_train:
+        ctrl = ThresholdController(t1=cfg["t1"], t2=cfg["t2"])
+        m = evaluate_on_test(ctrl, test, t1_eval, t2_eval)
+        pareto_results.append((
+            constraint,
+            float(m["energy_savings_pct"]),
+            float(m["adequate_rate"]),
+            cfg,
+        ))
 
     print(f"\n  {'Constraint':>12s} | {'Savings%':>9s} | {'Adequate':>9s} | "
           f"{'t1':>6s} | {'t2':>6s}")
