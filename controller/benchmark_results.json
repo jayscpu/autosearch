@@ -1,0 +1,107 @@
+{
+  "timestamp": "2026-03-29 11:29:04",
+  "models": {
+    "yolo11n": {
+      "model": "yolo11n",
+      "label": "nano@640",
+      "imgsz": 640,
+      "latency_ms_mean": 12.890355729987277,
+      "latency_ms_std": 0.1259646693908475,
+      "latency_ms_median": 12.861721000035686,
+      "latency_ms_p95": 13.139705800040247,
+      "latency_ms_p99": 13.259925209918036,
+      "fps": 77.57737807604997,
+      "power_mw_mean": 6621.871999999999,
+      "power_mw_std": 813.3508714349546,
+      "energy_mj_per_frame": 85.3582856784423,
+      "n_frames": 200,
+      "n_power_samples": 36
+    },
+    "yolo11s": {
+      "model": "yolo11s",
+      "label": "small@640",
+      "imgsz": 640,
+      "latency_ms_mean": 16.578433975000735,
+      "latency_ms_std": 0.12475771723737544,
+      "latency_ms_median": 16.55102299991995,
+      "latency_ms_p95": 16.824491549732556,
+      "latency_ms_p99": 17.00421347975407,
+      "fps": 60.319328201200356,
+      "power_mw_mean": 7759.918139534885,
+      "power_mw_std": 1023.3814060225209,
+      "energy_mj_per_frame": 128.64729052768965,
+      "n_frames": 200,
+      "n_power_samples": 43
+    },
+    "yolo11m": {
+      "model": "yolo11m",
+      "label": "medium@640",
+      "imgsz": 640,
+      "latency_ms_mean": 26.40232587499213,
+      "latency_ms_std": 0.15721282698768246,
+      "latency_ms_median": 26.362459999972998,
+      "latency_ms_p95": 26.66651620002085,
+      "latency_ms_p99": 26.819743369769636,
+      "fps": 37.87545100135228,
+      "power_mw_mean": 9410.416516129033,
+      "power_mw_std": 1180.4127870160335,
+      "energy_mj_per_frame": 248.45688347824685,
+      "n_frames": 200,
+      "n_power_samples": 62
+    }
+  },
+  "switching": [
+    {
+      "from": "nano@640",
+      "to": "small@640",
+      "switch_latency_ms": 20.066588066644425,
+      "steady_latency_ms": 16.555523133304934,
+      "overhead_ms": 3.5110649333394903
+    },
+    {
+      "from": "nano@640",
+      "to": "medium@640",
+      "switch_latency_ms": 31.58920113334413,
+      "steady_latency_ms": 26.32103143329611,
+      "overhead_ms": 5.26816970004802
+    },
+    {
+      "from": "small@640",
+      "to": "nano@640",
+      "switch_latency_ms": 12.89817599995331,
+      "steady_latency_ms": 12.768530200006959,
+      "overhead_ms": 0.12964579994635095
+    },
+    {
+      "from": "small@640",
+      "to": "medium@640",
+      "switch_latency_ms": 26.25224040005681,
+      "steady_latency_ms": 26.245293900016502,
+      "overhead_ms": 0.006946500040307058
+    },
+    {
+      "from": "medium@640",
+      "to": "nano@640",
+      "switch_latency_ms": 12.860079466630244,
+      "steady_latency_ms": 12.841365200044189,
+      "overhead_ms": 0.018714266586055572
+    },
+    {
+      "from": "medium@640",
+      "to": "small@640",
+      "switch_latency_ms": 16.621081066659826,
+      "steady_latency_ms": 16.633827199969648,
+      "overhead_ms": 0
+    }
+  ],
+  "idle_power": {
+    "mean_mw": 4013.372159999999,
+    "std_mw": 88.2169800651462,
+    "min_mw": 3966.336,
+    "max_mw": 4392.96,
+    "n_samples": 50
+  },
+  "lstm_overhead": {
+    "note": "Run after deploying LSTM TensorRT engine on Jetson"
+  }
+}
