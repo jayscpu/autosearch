@@ -208,6 +208,7 @@ def process_prediction_file(csv_path: str, skip_dqn: bool = False,
     data = load_predictions(csv_path)
     file_tag = data["name"]
     t1_eval, t2_eval = default_t1, default_t2
+    thresh_suffix = f"_t1{t1_eval}_t2{t2_eval}"
 
     has_unc = data["epistemic_unc"] is not None
     is_4cam = "4cam" in file_tag.lower()
@@ -372,7 +373,7 @@ def process_prediction_file(csv_path: str, skip_dqn: bool = False,
               f"{cfg['t1']:>6.3f} | {cfg['t2']:>6.3f}")
 
     pareto_plot_path = os.path.join(os.path.dirname(__file__), "plots",
-                                    f"pareto_{file_tag}.png")
+                                    f"pareto_{file_tag}{thresh_suffix}.png")
     plot_pareto_frontier(pareto_results, save_path=pareto_plot_path)
 
     # ── Budget-constrained runs (on test data, with kappa grid) ──────────
@@ -436,7 +437,7 @@ def process_prediction_file(csv_path: str, skip_dqn: bool = False,
         mpc_name=mpc_test["controller"],
         t1=t1_eval, t2=t2_eval,
         predictor_name=file_tag,
-        save_name=f"timeline_{file_tag}",
+        save_name=f"timeline_{file_tag}{thresh_suffix}",
     )
 
     medium_energy_val = energy_per_window(2)
@@ -444,14 +445,14 @@ def process_prediction_file(csv_path: str, skip_dqn: bool = False,
         all_results,
         oracle_energy=oracle_energy,
         medium_energy=medium_energy_val,
-        save_name=f"energy_{file_tag}",
+        save_name=f"energy_{file_tag}{thresh_suffix}",
     )
 
     if inter_results:
         top_ctrl_names = [c.name() for c in top_ctrls[:3]]
         plot_per_intersection(
             inter_results, top_ctrl_names,
-            save_name=f"intersection_{file_tag}",
+            save_name=f"intersection_{file_tag}{thresh_suffix}",
         )
 
     # ── Save results JSON ────────────────────────────────────────────────
@@ -469,7 +470,7 @@ def process_prediction_file(csv_path: str, skip_dqn: bool = False,
                            for k, v in jr[key].items()}
         json_results.append(jr)
 
-    json_path = os.path.join(os.path.dirname(__file__), f"results_{file_tag}.json")
+    json_path = os.path.join(os.path.dirname(__file__), f"results_{file_tag}{thresh_suffix}.json")
     with open(json_path, "w") as f:
         json.dump(json_results, f, indent=2)
     print(f"\n  Results saved: {json_path}")
