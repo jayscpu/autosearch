@@ -13,7 +13,7 @@ from .models import (MODELS, FRAMES_PER_WINDOW, required_model,
 
 
 def run_budget_constrained(ctrl, pred_stream: np.ndarray, true_stream: np.ndarray,
-                           models_config: dict, t1: float, t2: float,
+                           models_config: dict, t1_eval: float, t2_eval: float,
                            total_budget_j: float, kappa: float = 2.0,
                            epistemic_unc: np.ndarray = None) -> dict:
     """Run a controller under a total energy budget constraint.
@@ -26,9 +26,10 @@ def run_budget_constrained(ctrl, pred_stream: np.ndarray, true_stream: np.ndarra
         pred_stream: Predicted miss rates array.
         true_stream: True miss rates array.
         models_config: MODELS dict from models.py.
-        t1, t2: Threshold parameters for required_model().
+        t1_eval, t2_eval: Fixed evaluation thresholds for adequacy scoring.
         total_budget_j: Total energy budget in joules (e.g., n * small_energy / 1000).
-        kappa: Budget slack sensitivity (unused in basic mode, reserved for extensions).
+        kappa: Budget slack sensitivity — controls how aggressively the controller
+            downgrades when remaining budget is tight.
         epistemic_unc: Optional epistemic uncertainty array.
 
     Returns:
@@ -43,8 +44,8 @@ def run_budget_constrained(ctrl, pred_stream: np.ndarray, true_stream: np.ndarra
     from .controllers import OracleController, ProxyController
     if isinstance(ctrl, OracleController):
         ctrl.set_ground_truth(true_stream)
-        ctrl.t1 = t1
-        ctrl.t2 = t2
+        ctrl.t1 = t1_eval
+        ctrl.t2 = t2_eval
     if isinstance(ctrl, ProxyController) and epistemic_unc is not None:
         ctrl.set_uncertainty(epistemic_unc)
 
@@ -90,11 +91,11 @@ def run_budget_constrained(ctrl, pred_stream: np.ndarray, true_stream: np.ndarra
         e_consumed += e_step
         prev_model = model
 
-    # ── Compute standard metrics ──────────────────────────────────────────
+    # ── Compute standard metrics (using eval thresholds for adequacy) ─────
     avg_energy = energies.mean()
     medium_energy = energy_per_window(2)
 
-    required_models = np.array([required_model(true_stream[t], t1, t2)
+    required_models = np.array([required_model(true_stream[t], t1_eval, t2_eval)
                                 for t in range(n)])
 
     adequate = (selections >= required_models).astype(float)
@@ -112,7 +113,7 @@ def run_budget_constrained(ctrl, pred_stream: np.ndarray, true_stream: np.ndarra
                            for t in range(n)])
 
     return {
-        "controller": ctrl.name() + " [budget]",
+        "controller": ctrl.name() + f" [budget k={kappa}]",
         "avg_energy_mj": avg_energy,
         "energy_savings_pct": 100.0 * (1.0 - avg_energy / medium_energy),
         "switches_per_100": switches / n * 100.0,
@@ -131,4 +132,5 @@ def run_budget_constrained(ctrl, pred_stream: np.ndarray, true_stream: np.ndarra
         "budget_exhausted_at_frame": budget_exhausted_at,
         "total_budget_j": total_budget_j,
         "total_consumed_j": e_consumed / 1000.0,
+        "kappa": kappa,
     }

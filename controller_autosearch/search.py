@@ -3,6 +3,11 @@ Grid search functions for optimizing controller parameters.
 
 Each search function runs all parameter combinations and returns the best
 configuration that minimizes energy subject to adequate_rate >= 0.85.
+
+IMPORTANT: All search functions take t1_eval/t2_eval — fixed evaluation
+thresholds that define what "adequate" means. These are passed to evaluate()
+for scoring. The controller's own internal thresholds are grid-searched
+separately and do NOT affect adequacy scoring.
 """
 
 import numpy as np
@@ -36,12 +41,16 @@ def _print_progress(current: int, total: int, name: str, interval: int = 10):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def search_threshold(pred_miss_rates: np.ndarray, true_miss_rates: np.ndarray,
+                     t1_eval: float, t2_eval: float,
                      epistemic_unc: np.ndarray = None,
                      min_adequate: float = 0.85) -> tuple:
     """Grid search over threshold parameters t1 and t2.
 
     Grid: t1 in linspace(0.01, 0.50, 30), t2 in linspace(0.05, 0.80, 30),
     constrained t2 > t1. ~400 feasible combinations.
+
+    Args:
+        t1_eval, t2_eval: Fixed evaluation thresholds for adequacy scoring.
 
     Returns:
         (best_config, best_metrics, all_results_sorted)
@@ -57,8 +66,8 @@ def search_threshold(pred_miss_rates: np.ndarray, true_miss_rates: np.ndarray,
     for i, (t1, t2) in enumerate(combos):
         _print_progress(i, total, "Threshold")
         ctrl = ThresholdController(t1=t1, t2=t2)
-        m = evaluate(ctrl, pred_miss_rates, true_miss_rates, MODELS, t1, t2,
-                     epistemic_unc)
+        m = evaluate(ctrl, pred_miss_rates, true_miss_rates, MODELS,
+                     t1_eval, t2_eval, epistemic_unc)
         m["config"] = {"t1": t1, "t2": t2}
         results.append(m)
 
@@ -75,6 +84,7 @@ def search_threshold(pred_miss_rates: np.ndarray, true_miss_rates: np.ndarray,
 
 def search_threshold_hysteresis(pred_miss_rates: np.ndarray,
                                 true_miss_rates: np.ndarray,
+                                t1_eval: float, t2_eval: float,
                                 epistemic_unc: np.ndarray = None,
                                 min_adequate: float = 0.85) -> tuple:
     """Grid search over threshold + hysteresis parameters.
@@ -98,8 +108,8 @@ def search_threshold_hysteresis(pred_miss_rates: np.ndarray,
     for i, (t1, t2, h) in enumerate(combos):
         _print_progress(i, total, "Hysteresis")
         ctrl = ThresholdHysteresisController(t1=t1, t2=t2, hysteresis_n=h)
-        m = evaluate(ctrl, pred_miss_rates, true_miss_rates, MODELS, t1, t2,
-                     epistemic_unc)
+        m = evaluate(ctrl, pred_miss_rates, true_miss_rates, MODELS,
+                     t1_eval, t2_eval, epistemic_unc)
         m["config"] = {"t1": t1, "t2": t2, "hysteresis_n": h}
         results.append(m)
 
@@ -116,6 +126,7 @@ def search_threshold_hysteresis(pred_miss_rates: np.ndarray,
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def search_mpc(pred_miss_rates: np.ndarray, true_miss_rates: np.ndarray,
+               t1_eval: float, t2_eval: float,
                threshold_results: list = None,
                epistemic_unc: np.ndarray = None,
                min_adequate: float = 0.85) -> tuple:
@@ -154,8 +165,8 @@ def search_mpc(pred_miss_rates: np.ndarray, true_miss_rates: np.ndarray,
         _print_progress(i, total, "MPC")
         ctrl = BayesRiskMPCController(horizon=h, lambda_under=lu, lambda_over=lo,
                                       w_switch=ws, t1=t1, t2=t2)
-        m = evaluate(ctrl, pred_miss_rates, true_miss_rates, MODELS, t1, t2,
-                     epistemic_unc)
+        m = evaluate(ctrl, pred_miss_rates, true_miss_rates, MODELS,
+                     t1_eval, t2_eval, epistemic_unc)
         m["config"] = {"horizon": h, "lambda_under": lu, "lambda_over": lo,
                        "w_switch": ws, "t1": t1, "t2": t2}
         results.append(m)
@@ -174,13 +185,18 @@ def search_mpc(pred_miss_rates: np.ndarray, true_miss_rates: np.ndarray,
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def search_dqn(pred_miss_rates: np.ndarray, true_miss_rates: np.ndarray,
-               t1: float = 0.15, t2: float = 0.35,
+               t1_eval: float, t2_eval: float,
                epistemic_unc: np.ndarray = None,
                min_adequate: float = 0.85) -> tuple:
     """Grid search over DQN hyperparameters.
 
-    Trains on first 60% of data, evaluates on last 40%.
+    Splits the provided data 60/40 internally for DQN train/validate.
     150 combinations (slowest search due to training).
+
+    Args:
+        pred_miss_rates: Training portion of predictions (from the global 60% split).
+        true_miss_rates: Training portion of ground truth.
+        t1_eval, t2_eval: Fixed evaluation thresholds for adequacy scoring.
 
     Returns:
         (best_config, best_metrics, all_results_sorted)
@@ -194,20 +210,22 @@ def search_dqn(pred_miss_rates: np.ndarray, true_miss_rates: np.ndarray,
     total = len(combos)
     print(f"[DQN Search] {total} combinations")
 
-    # Split data: train on first 60%, evaluate on last 40%
+    # DQN-specific internal split: train on first 60%, validate on last 40%
+    # of the provided (already-split) training data
     split = int(0.6 * len(pred_miss_rates))
     train_pred = pred_miss_rates[:split]
     train_true = true_miss_rates[:split]
-    eval_pred = pred_miss_rates[split:]
-    eval_true = true_miss_rates[split:]
+    val_pred = pred_miss_rates[split:]
+    val_true = true_miss_rates[split:]
 
     results = []
     for i, (lam, alpha, lr, n_ep) in enumerate(combos):
         _print_progress(i, total, "DQN")
         try:
             ctrl = DQNController(lambda_tradeoff=lam, alpha_switch=alpha, lr=lr)
-            ctrl.train(train_pred, train_true, t1, t2, n_episodes=n_ep)
-            m = evaluate(ctrl, eval_pred, eval_true, MODELS, t1, t2, epistemic_unc)
+            ctrl.train(train_pred, train_true, t1_eval, t2_eval, n_episodes=n_ep)
+            m = evaluate(ctrl, val_pred, val_true, MODELS,
+                         t1_eval, t2_eval, epistemic_unc)
             m["config"] = {"lambda_tradeoff": lam, "alpha_switch": alpha,
                            "lr": lr, "n_train_episodes": n_ep}
             results.append(m)
@@ -232,7 +250,8 @@ def search_dqn(pred_miss_rates: np.ndarray, true_miss_rates: np.ndarray,
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def search_proxy(pred_miss_rates: np.ndarray, true_miss_rates: np.ndarray,
-                 epistemic_unc: np.ndarray, t1: float = 0.15, t2: float = 0.35,
+                 epistemic_unc: np.ndarray,
+                 t1_eval: float, t2_eval: float,
                  min_adequate: float = 0.85) -> tuple:
     """Grid search over proxy (uncertainty-based) controller thresholds.
 
@@ -253,8 +272,8 @@ def search_proxy(pred_miss_rates: np.ndarray, true_miss_rates: np.ndarray,
         _print_progress(i, total, "Proxy")
         ctrl = ProxyController(unc_threshold_low=lo, unc_threshold_high=hi)
         ctrl.set_uncertainty(epistemic_unc)
-        m = evaluate(ctrl, pred_miss_rates, true_miss_rates, MODELS, t1, t2,
-                     epistemic_unc)
+        m = evaluate(ctrl, pred_miss_rates, true_miss_rates, MODELS,
+                     t1_eval, t2_eval, epistemic_unc)
         m["config"] = {"unc_threshold_low": lo, "unc_threshold_high": hi}
         results.append(m)
 
@@ -271,6 +290,7 @@ def search_proxy(pred_miss_rates: np.ndarray, true_miss_rates: np.ndarray,
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def pareto_sweep(pred_miss_rates: np.ndarray, true_miss_rates: np.ndarray,
+                 t1_eval: float, t2_eval: float,
                  models_config: dict = None,
                  t1_range: np.ndarray = None,
                  t2_range: np.ndarray = None,
@@ -281,6 +301,7 @@ def pareto_sweep(pred_miss_rates: np.ndarray, true_miss_rates: np.ndarray,
     Args:
         pred_miss_rates: Predicted miss rates array.
         true_miss_rates: True miss rates array.
+        t1_eval, t2_eval: Fixed evaluation thresholds for adequacy scoring.
         models_config: MODELS dict (defaults to controller.models.MODELS).
         t1_range: Array of t1 values to search (default: linspace(0.01, 0.50, 30)).
         t2_range: Array of t2 values to search (default: linspace(0.05, 0.80, 30)).
@@ -308,7 +329,7 @@ def pareto_sweep(pred_miss_rates: np.ndarray, true_miss_rates: np.ndarray,
     for t1, t2 in combos:
         ctrl = ThresholdController(t1=t1, t2=t2)
         m = evaluate(ctrl, pred_miss_rates, true_miss_rates, models_config,
-                     t1, t2, epistemic_unc)
+                     t1_eval, t2_eval, epistemic_unc)
         m["config"] = {"t1": t1, "t2": t2}
         all_evals.append(m)
 

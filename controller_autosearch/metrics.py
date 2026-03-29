@@ -3,6 +3,10 @@ Evaluation metrics for controller simulation.
 
 Runs a controller over a prediction stream, computes energy consumption,
 detection adequacy, switching frequency, and comparison against the oracle.
+
+IMPORTANT: t1_eval/t2_eval define what "adequate" means for scoring. These are
+fixed across all controllers so results are comparable. The controller's own
+internal thresholds (used for switching decisions) are separate.
 """
 
 import numpy as np
@@ -13,7 +17,7 @@ from .controllers import OracleController
 
 
 def evaluate(ctrl, pred_miss_rates: np.ndarray, true_miss_rates: np.ndarray,
-             models_config: dict, t1: float, t2: float,
+             models_config: dict, t1_eval: float, t2_eval: float,
              epistemic_unc: np.ndarray = None) -> dict:
     """Run a controller over the prediction stream and compute all metrics.
 
@@ -22,8 +26,10 @@ def evaluate(ctrl, pred_miss_rates: np.ndarray, true_miss_rates: np.ndarray,
         pred_miss_rates: Array of LSTM-predicted miss rates.
         true_miss_rates: Array of ground-truth miss rates.
         models_config: Model hardware specs (the MODELS dict from models.py).
-        t1: Lower threshold for required_model (easy/moderate boundary).
-        t2: Upper threshold for required_model (moderate/hard boundary).
+        t1_eval: Fixed lower threshold for adequacy scoring (easy/moderate).
+            Used by required_model() and oracle reference. NOT the controller's
+            own switching threshold.
+        t2_eval: Fixed upper threshold for adequacy scoring (moderate/hard).
         epistemic_unc: Optional epistemic uncertainty array (for ProxyController).
 
     Returns:
@@ -34,11 +40,12 @@ def evaluate(ctrl, pred_miss_rates: np.ndarray, true_miss_rates: np.ndarray,
 
     ctrl.reset()
 
-    # If it's an oracle, inject ground truth
+    # If it's an oracle, inject ground truth and use eval thresholds
+    # (oracle = "best possible given the adequacy definition")
     if isinstance(ctrl, OracleController):
         ctrl.set_ground_truth(true_miss_rates)
-        ctrl.t1 = t1
-        ctrl.t2 = t2
+        ctrl.t1 = t1_eval
+        ctrl.t2 = t2_eval
 
     # If it's a proxy controller, inject uncertainty
     from .controllers import ProxyController
@@ -57,11 +64,11 @@ def evaluate(ctrl, pred_miss_rates: np.ndarray, true_miss_rates: np.ndarray,
         energies[t] = step_energy(model, prev_model)
         prev_model = model
 
-    # ── Oracle reference ──────────────────────────────────────────────────
-    oracle = OracleController(t1=t1, t2=t2)
+    # ── Oracle reference (always uses eval thresholds) ────────────────────
+    oracle = OracleController(t1=t1_eval, t2=t2_eval)
     oracle.set_ground_truth(true_miss_rates)
     oracle_selections = np.array([
-        required_model(true_miss_rates[t], t1, t2) for t in range(n)
+        required_model(true_miss_rates[t], t1_eval, t2_eval) for t in range(n)
     ])
     oracle_energies = np.zeros(n)
     prev_oracle = 1
@@ -72,12 +79,12 @@ def evaluate(ctrl, pred_miss_rates: np.ndarray, true_miss_rates: np.ndarray,
     # ── Always-medium reference ───────────────────────────────────────────
     medium_energy = energy_per_window(2)  # no switching for constant model
 
-    # ── Compute metrics ───────────────────────────────────────────────────
+    # ── Compute metrics (all use eval thresholds for adequacy) ────────────
     avg_energy = energies.mean()
     oracle_avg = oracle_energies.mean()
 
-    # Required models for each frame based on true miss rates
-    required_models = np.array([required_model(true_miss_rates[t], t1, t2)
+    # Required models for each frame based on true miss rates and EVAL thresholds
+    required_models = np.array([required_model(true_miss_rates[t], t1_eval, t2_eval)
                                 for t in range(n)])
 
     adequate = (selections >= required_models).astype(float)
