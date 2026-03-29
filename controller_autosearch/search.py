@@ -33,7 +33,7 @@ def _print_progress(current: int, total: int, name: str, interval: int = 10):
     pct = int(current / total * 100)
     prev_pct = int((current - 1) / total * 100) if current > 0 else -1
     if pct // interval > prev_pct // interval or current == total - 1:
-        print(f"  [{name}] {pct}% ({current+1}/{total})")
+        print(f"  [{name}] {pct}% ({current+1}/{total})", flush=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

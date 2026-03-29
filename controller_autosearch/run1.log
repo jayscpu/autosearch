@@ -1,0 +1,56 @@
+Running all 5 prediction files:
+  - predictions_evidential_4cam_tw8.csv
+  - predictions_plainlstm_1cam_ne8th.csv
+  - predictions_plainlstm_4cam.csv
+  - predictions_rf_1cam_ne8th.csv
+  - predictions_rf_4cam.csv
+
+Eval thresholds: t1=0.15, t2=0.35
+Train/test split: 60% / 40%
+
+####################################################################################################
+# Processing: predictions_evidential_4cam_tw8.csv
+####################################################################################################
+  Total frames: 10809 | Train: 6485 | Test: 4324
+  Has uncertainty: True | 4CAM: True
+  Eval thresholds: t1_eval=0.15, t2_eval=0.35
+
+────────────────────────────────────────────────────────────
+  PHASE 1: Grid searches on train split (6485 frames)
+────────────────────────────────────────────────────────────
+
+── Threshold Grid Search ──
+[Threshold Search] 646 combinations
+  [Threshold] 0% (1/646)
+  [Threshold] 10% (66/646)
+  [Threshold] 20% (131/646)
+  [Threshold] 30% (195/646)
+  [Threshold] 40% (260/646)
+  [Threshold] 50% (324/646)
+  [Threshold] 60% (389/646)
+  [Threshold] 70% (454/646)
+  [Threshold] 80% (518/646)
+  [Threshold] 90% (583/646)
+  [Threshold] 99% (646/646)
+  Best: t1=0.449, t2=0.464 | energy=3075.6mJ | adequate=0.854
+
+── Hysteresis Grid Search ──
+[Hysteresis Search] 3876 combinations
+  [Hysteresis] 0% (1/3876)
+  [Hysteresis] 10% (389/3876)
+  [Hysteresis] 20% (777/3876)
+  [Hysteresis] 30% (1164/3876)
+  [Hysteresis] 40% (1552/3876)
+  [Hysteresis] 50% (1939/3876)
+  [Hysteresis] 60% (2327/3876)
+  [Hysteresis] 70% (2715/3876)
+  [Hysteresis] 80% (3102/3876)
+  [Hysteresis] 90% (3490/3876)
+  [Hysteresis] 99% (3876/3876)
+  Best: t1=0.466, t2=0.490, n=5 | energy=3074.6mJ | adequate=0.856
+
+── MPC Grid Search (warm-started) ──
+[MPC Search] 1350 combinations
+  [MPC] 0% (1/1350)
+  [MPC] 10% (136/1350)
+  [MPC] 20% (271/1350)
