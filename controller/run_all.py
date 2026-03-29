@@ -155,7 +155,8 @@ def run_per_intersection(data: dict, controllers: list, t1: float, t2: float) ->
     return inter_results
 
 
-def process_prediction_file(csv_path: str, skip_dqn: bool = False):
+def process_prediction_file(csv_path: str, skip_dqn: bool = False,
+                            default_t1: float = 0.15, default_t2: float = 0.35):
     """Process a single prediction file: baselines, searches, budget, plots."""
     print(f"\n{'#'*100}")
     print(f"# Processing: {os.path.basename(csv_path)}")
@@ -171,12 +172,13 @@ def process_prediction_file(csv_path: str, skip_dqn: bool = False):
     is_4cam = "4cam" in file_tag.lower()
 
     print(f"  Frames: {data['n']} | Has uncertainty: {has_unc} | 4CAM: {is_4cam}")
+    print(f"  Oracle/baseline thresholds: t1={default_t1}, t2={default_t2}")
 
     all_results = []
 
     # ── 1. Baselines ─────────────────────────────────────────────────────
     print("\n── Baselines ──")
-    baseline_results = run_baselines(data, t1=0.15, t2=0.35)
+    baseline_results = run_baselines(data, t1=default_t1, t2=default_t2)
     all_results.extend(baseline_results)
 
     # Get oracle energy for reference
@@ -359,6 +361,10 @@ def main():
                         help="Run all prediction files in results directory")
     parser.add_argument("--skip-dqn", action="store_true",
                         help="Skip DQN grid search (requires PyTorch)")
+    parser.add_argument("--t1", type=float, default=0.15,
+                        help="Default t1 threshold for oracle/baselines (default: 0.15)")
+    parser.add_argument("--t2", type=float, default=0.35,
+                        help="Default t2 threshold for oracle/baselines (default: 0.35)")
     args = parser.parse_args()
 
     if args.all:
@@ -380,7 +386,8 @@ def main():
         if not os.path.exists(csv_path):
             print(f"File not found: {csv_path}")
             continue
-        output = process_prediction_file(csv_path, skip_dqn=args.skip_dqn)
+        output = process_prediction_file(csv_path, skip_dqn=args.skip_dqn,
+                                         default_t1=args.t1, default_t2=args.t2)
         all_outputs.append(output)
 
     print(f"\n{'='*100}")
