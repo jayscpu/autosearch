@@ -21,19 +21,19 @@ import pandas as pd
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from controller.models import MODELS, energy_per_window
-from controller.controllers import (
+from controller_autosearch.models import MODELS, energy_per_window
+from controller_autosearch.controllers import (
     AlwaysNano, AlwaysMedium, BestFixed, RandomController, OracleController,
     ThresholdController, ThresholdHysteresisController, BayesRiskMPCController,
     DQNController, ProxyController,
 )
-from controller.metrics import evaluate
-from controller.search import (
+from controller_autosearch.metrics import evaluate
+from controller_autosearch.search import (
     search_threshold, search_threshold_hysteresis, search_mpc,
     search_dqn, search_proxy, pareto_sweep,
 )
-from controller.budget import run_budget_constrained
-from controller.visualize import (
+from controller_autosearch.budget import run_budget_constrained
+from controller_autosearch.visualize import (
     plot_timeline, plot_energy_comparison, plot_per_intersection,
     plot_pareto_frontier,
 )
