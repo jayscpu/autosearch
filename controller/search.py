@@ -264,3 +264,75 @@ def search_proxy(pred_miss_rates: np.ndarray, true_miss_rates: np.ndarray,
           f"hi={best['config']['unc_threshold_high']:.3f} | "
           f"energy={best['avg_energy_mj']:.1f}mJ | adequate={best['adequate_rate']:.3f}")
     return best["config"], best, ranked
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Pareto frontier sweep
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def pareto_sweep(pred_miss_rates: np.ndarray, true_miss_rates: np.ndarray,
+                 models_config: dict = None,
+                 t1_range: np.ndarray = None,
+                 t2_range: np.ndarray = None,
+                 epistemic_unc: np.ndarray = None) -> list:
+    """Sweep the adequate_rate constraint from 0.70 to 0.95 and find the
+    best threshold controller (minimum energy) at each constraint level.
+
+    Args:
+        pred_miss_rates: Predicted miss rates array.
+        true_miss_rates: True miss rates array.
+        models_config: MODELS dict (defaults to controller.models.MODELS).
+        t1_range: Array of t1 values to search (default: linspace(0.01, 0.50, 30)).
+        t2_range: Array of t2 values to search (default: linspace(0.05, 0.80, 30)).
+        epistemic_unc: Optional epistemic uncertainty array.
+
+    Returns:
+        List of (constraint, best_energy_savings_pct, best_adequate_rate, best_config)
+        tuples — one per constraint level.
+    """
+    if models_config is None:
+        models_config = MODELS
+    if t1_range is None:
+        t1_range = np.linspace(0.01, 0.50, 30)
+    if t2_range is None:
+        t2_range = np.linspace(0.05, 0.80, 30)
+
+    constraints = np.arange(0.70, 0.96, 0.05)
+
+    # Run threshold grid once and cache all results
+    combos = [(t1, t2) for t1 in t1_range for t2 in t2_range if t2 > t1]
+    print(f"[Pareto Sweep] evaluating {len(combos)} threshold combos "
+          f"across {len(constraints)} constraint levels")
+
+    all_evals = []
+    for t1, t2 in combos:
+        ctrl = ThresholdController(t1=t1, t2=t2)
+        m = evaluate(ctrl, pred_miss_rates, true_miss_rates, models_config,
+                     t1, t2, epistemic_unc)
+        m["config"] = {"t1": t1, "t2": t2}
+        all_evals.append(m)
+
+    # For each constraint level, find the best feasible config
+    frontier = []
+    for constraint in constraints:
+        feasible = [r for r in all_evals if r["adequate_rate"] >= constraint]
+        if feasible:
+            best = min(feasible, key=lambda r: r["avg_energy_mj"])
+            frontier.append((
+                float(constraint),
+                float(best["energy_savings_pct"]),
+                float(best["adequate_rate"]),
+                best["config"],
+            ))
+        else:
+            # No config meets this constraint — report the closest
+            closest = max(all_evals, key=lambda r: r["adequate_rate"])
+            frontier.append((
+                float(constraint),
+                float(closest["energy_savings_pct"]),
+                float(closest["adequate_rate"]),
+                closest["config"],
+            ))
+
+    print(f"  Pareto frontier: {len(frontier)} points")
+    return frontier

@@ -1,0 +1,251 @@
+Task: Write a comprehensive controller simulation framework for ECHO. DO NOT RUN anything — only write the code. I will review for correctness before execution.
+
+Read these files first for context:
+- second_autosearch/results/predictions_plainlstm_4cam.csv (head -5, check columns)
+- second_autosearch/results/predictions_evidential_4cam_tw8.csv (head -5, has epistemic_unc column)
+- second_autosearch/results/predictions_plainlstm_1cam_ne8th.csv (head -5)
+
+---
+
+Create folder controller/ at repo root (same level as first_autosearch and second_autosearch). Write these files:
+
+---
+
+### File 1: controller/models.py
+
+Hardware constants for the 3 YOLO11 model tiers on Jetson Orin Nano (15W mode, TensorRT FP16, clocks locked). These are real measurements from the actual hardware:
+
+| Model | Latency (ms) | Std (ms) | FPS | Power (mW) | Energy (mJ/frame) |
+|-------|-------------|----------|-----|-----------|-------------------|
+| nano@640 | 12.89 | 0.13 | 77.6 | 6622 | 85.36 |
+| small@640 | 16.58 | 0.12 | 60.3 | 7760 | 128.65 |
+| medium@640 | 26.40 | 0.16 | 37.9 | 9410 | 248.46 |
+
+Idle power: 4013 mW
+
+Switching costs (measured):
+- nano to small: 20.1ms (+3.5ms overhead)
+- nano to medium: 31.6ms (+5.3ms overhead)
+- small to nano: 12.9ms (~0ms overhead)
+- small to medium: 26.3ms (~0ms overhead)
+- medium to nano: 12.9ms (~0ms overhead)
+- medium to small: 16.6ms (~0ms overhead)
+
+Key: upward switches cost 3-5ms extra; downward switches are free.
+
+The camera and detectors run at 30fps. The LSTM predictor evaluates at 2fps (every 15th frame) to decide model switching. Each "frame" in the prediction CSVs represents a 0.5-second decision window containing ~15 detector frames. Energy per simulation step = model_energy_per_frame * 15 + switching_energy if switch occurred. Switching energy = switch_overhead_ms * average_power_mW / 1000 (in mJ).
+
+Store as a clean dict. Include a helper function required_model(true_miss_rate, t1, t2) -> int that returns the minimum adequate model tier: 0 (nano) if miss_rate < t1, 1 (small) if < t2, else 2 (medium). This is the oracle logic.
+
+---
+
+### File 2: controller/controllers.py
+
+Abstract base class Controller with method select_model(pred_miss_rate: float, t: int, state: dict) -> int returning model index {0, 1, 2}. Also reset() and name() -> str.
+
+Implement these controllers, each as its own class:
+
+Baselines (5):
+1. AlwaysNano — always returns 0
+2. AlwaysMedium — always returns 2
+3. BestFixed — always returns a fixed model index (parameterized, default 1=small)
+4. RandomController — uniform random from {0,1,2}, seeded for reproducibility
+5. OracleController — uses true_miss_rate (injected via set_ground_truth(array)) to pick cheapest adequate model using required_model(). This is the theoretical optimum — no real system can achieve this.
+
+Adaptive Controllers (4):
+
+6. ThresholdController(t1, t2) — maps predicted miss_rate to model tier:
+   - pred < t1 -> nano (scene is easy, cheap model suffices)
+   - t1 <= pred < t2 -> small (moderate difficulty)
+   - pred >= t2 -> medium (hard scene, need full model)
+   
+   This is the simplest adaptive policy — zero computational overhead, fully interpretable.
+
+7. ThresholdHysteresisController(t1, t2, hysteresis_n) — same threshold logic but only switches model after hysteresis_n consecutive frames recommend the same new model. This prevents oscillation at decision boundaries. Implements Algorithm 2 from the K-Dense review manuscript.
+
+8. BayesRiskMPCController(horizon, lambda_under, lambda_over, w_switch, t1, t2) — Model Predictive Control using Bayes risk minimization from thesis Chapter 4:
+   
+   Step 1 — Convert predicted miss_rate to class probabilities:
+   - P(easy) = fraction of prediction below t1
+   - P(moderate) = fraction between t1 and t2
+   - P(hard) = fraction above t2
+   - For a point prediction, use soft assignment: P(easy) = max(0, (t1 - pred) / t1) clamped [0,1], etc. Or simpler: hard assignment based on which bin the prediction falls in, with the two nearest classes getting partial probability proportional to distance from boundary. Design a reasonable soft mapping.
+   
+   Step 2 — Compute Bayes risk for each model candidate:
+   - Define loss matrix:
+     - nano:   L = lambda_under * (P(moderate) + P(hard))  — cost of under-provisioning
+     - small:  L = lambda_over * P(easy) + lambda_under * P(hard)  — cost of over or under
+     - medium: L = lambda_over * (P(easy) + P(moderate))  — cost of over-provisioning
+   - Add energy cost (normalized) to each model's risk
+   
+   Step 3 — MPC lookahead:
+   - Predict future difficulty using linear extrapolation from last 3 values
+   - Enumerate all 3^H model sequences (H=2->9, H=3->27, H=5->243 — all tractable)
+   - For each sequence, sum: Bayes risk at each step + energy cost + flat switching penalty w_switch for each model change
+   - Pick the sequence with minimum total cost
+   - Execute only the first model selection (receding horizon)
+   
+   Why exhaustive instead of convex relaxation: With only 3 models, 3^H is tiny. No need for SLSQP or continuous relaxation+rounding. Exact solution is fast.
+
+9. DQNController(lambda_tradeoff, alpha_switch, lr, state_dim) — Deep Q-Network:
+   
+   Architecture: 2-layer MLP: state_dim -> 32 -> ReLU -> 32 -> ReLU -> 3 (Q-values per model)
+   
+   State vector (8 dims):
+   - pred_miss_rate at current frame
+   - pred_miss_rate at t-1, t-2, t-3, t-4 (temporal context, padded with 0 at start)
+   - current_model one-hot encoding (3 dims)
+   
+   Reward function:
+   - r = lambda * adequate_indicator - (1-lambda) * energy_normalized - alpha * switch_indicator
+   - adequate_indicator = 1 if selected model >= required model for true difficulty, else 0
+   - energy_normalized = energy of selected model / energy of medium (so nano~0.34, small~0.52, medium=1.0)
+   - switch_indicator = 1 if model changed from previous frame, else 0
+   
+   Training: experience replay (buffer 5000), target network updated every 200 steps, epsilon-greedy with decay. Train on first 60% of prediction data, evaluate on last 40%.
+   
+   Important: DQN trains on the prediction stream — it learns a switching policy from the LSTM's actual prediction quality, not from ground truth. This means it implicitly learns to compensate for the LSTM's prediction errors.
+
+10. ProxyController(unc_threshold_low, unc_threshold_high) — uncertainty-based switching without LSTM predictions. Only usable when epistemic_unc column exists. Maps uncertainty directly to model tier:
+    - unc < low_thresh -> nano (model is confident, easy scene)
+    - unc < high_thresh -> small
+    - unc >= high_thresh -> medium (model is uncertain, hard scene)
+    
+    This tests whether raw uncertainty is sufficient for switching without explicit miss_rate prediction. Grid search over thresholds.
+
+---
+
+### File 3: controller/metrics.py
+
+Function evaluate(ctrl, pred_miss_rates, true_miss_rates, models_config, t1, t2, epistemic_unc=None) -> dict that:
+
+1. Runs the controller over the prediction stream
+2. Also runs the oracle for reference
+3. Computes and returns:
+   - avg_energy_mj: mean energy per decision window in millijoules (model_energy * 15 frames + switching overhead)
+   - energy_savings_pct: 100 * (1 - avg_energy / medium_energy). How much energy saved vs always using the most expensive model.
+   - oracle_gap: (E_adaptive - E_oracle) / (E_always_medium - E_oracle). 0 = matches oracle, 1 = no better than always-medium. Can be negative if controller is cheaper than oracle (by under-provisioning).
+   - switches_per_100: model changes per 100 decision windows. Lower = more stable.
+   - adequate_rate: fraction of windows where selected model >= required model based on TRUE miss_rate. This is detection quality — 1.0 means never under-provisioned.
+   - under_provision_rate: fraction where selected model is too weak. These are frames where detection quality suffers.
+   - over_provision_rate: fraction where model is stronger than needed. Energy wasted but no quality loss.
+   - correct_provision_rate: fraction where selected == required. Perfect efficiency.
+   - model_distribution: dict {nano: %, small: %, medium: %}
+   - avg_latency_ms: mean inference latency per frame
+
+---
+
+### File 4: controller/search.py
+
+Grid search functions for each controller type. Each function takes prediction data, runs all parameter combinations, and returns the best config (minimum energy subject to adequate_rate >= 0.85):
+
+search_threshold:
+- t1 in linspace(0.01, 0.50, 30)
+- t2 in linspace(0.05, 0.80, 30), constrained t2 > t1
+- Total: ~400 feasible combos
+
+search_threshold_hysteresis:
+- Same t1, t2 grid as above
+- hysteresis_n in {2, 3, 5, 8, 10, 15}
+- Total: ~2400 combos
+
+search_mpc:
+- horizon H in {2, 3, 5}
+- lambda_under in {0.3, 0.5, 1.0, 2.0, 3.0}
+- lambda_over in {0.1, 0.3, 0.5, 1.0, 2.0}
+- w_switch in {0.0, 0.005, 0.01, 0.03, 0.05, 0.1}
+- t1, t2 in best 3 from threshold search (warm-start from threshold results to avoid redundant search)
+- Total: ~270 combos per (t1,t2), ~810 total
+
+search_dqn:
+- lambda_tradeoff in {0.3, 0.4, 0.5, 0.6, 0.7}
+- alpha_switch in {0.0, 0.005, 0.01, 0.03, 0.05}
+- lr in {5e-4, 1e-3, 2e-3}
+- n_train_episodes in {10, 20}
+- Total: 150 combos (each requires training, so this is the slowest search)
+
+search_proxy: (only if epistemic_unc column exists)
+- low_thresh in linspace(0.01, 0.30, 20)
+- high_thresh in linspace(0.05, 0.50, 20), constrained high > low
+- Total: ~190 combos
+
+Each search function should print progress every 10% and return: best_config, best_metrics, all_results_sorted.
+
+---
+
+### File 5: controller/budget.py
+
+Budget-constrained simulation from thesis Chapter 4 Section 4.2.3:
+
+Function run_budget_constrained(ctrl, pred_stream, true_stream, models, t1, t2, total_budget_j, kappa=2.0):
+
+- total_budget_j: total energy budget for the sequence (e.g., enough for always-small = n_frames * small_energy)
+- Track E_consumed cumulatively
+- Compute budget slack: s(t) = (total_budget_j - E_consumed) / total_budget_j
+- If E_consumed >= total_budget_j: enter degraded mode -> force nano for remaining frames
+- Return standard metrics PLUS:
+  - time_in_degraded_pct: fraction of frames in nano-only degraded mode
+  - final_budget_utilization: E_consumed / total_budget_j at end
+  - budget_exhausted_at_frame: frame index where budget ran out (or -1 if never)
+
+---
+
+### File 6: controller/visualize.py
+
+Matplotlib plotting functions. For each prediction file, generate:
+
+1. Timeline plot (most important for thesis): x=frame index, two subplots:
+   - Top: true_miss_rate line + pred_miss_rate line + threshold lines (t1, t2 as horizontal dashed)
+   - Bottom: model selections over time for oracle, best threshold, best MPC as colored bands (nano=green, small=yellow, medium=red)
+   - Title shows the predictor name and energy savings
+
+2. Energy savings bar chart: horizontal bars for all controllers sorted by energy, with oracle and always-medium marked. Bars colored by adequate_rate (green if >=0.90, yellow if >=0.80, red if <0.80).
+
+3. Per-intersection comparison (4CAM only): grouped bar chart showing energy savings for each intersection, comparing top 3 controllers. Cross-camera intersection (Bellevue_150th_SE38th) highlighted.
+
+Save all plots as PNG to controller/plots/.
+
+---
+
+### File 7: controller/run_all.py
+
+Main entry point. Takes a prediction CSV path (or "all" to run all 5 files), runs:
+
+1. All baselines
+2. Threshold grid search
+3. Threshold+Hysteresis grid search
+4. MPC grid search (warm-started from best threshold)
+5. DQN grid search (flag --skip-dqn to skip if PyTorch unavailable)
+6. Proxy search (only if epistemic_unc column exists)
+7. Budget-constrained run for best threshold and best MPC
+8. Print formatted comparison table
+9. Generate all plots
+10. Save results JSON
+
+CLI:
+python run_all.py --predictions ../second_autosearch/results/predictions_plainlstm_4cam.csv
+python run_all.py --all  # runs all 5 prediction files
+python run_all.py --all --skip-dqn  # skip DQN training
+
+Per-intersection breakdown: For 4CAM files, detect the cross-camera intersection (Bellevue_150th_SE38th) and report metrics separately for within-camera vs cross-camera subsets using the best controller configs.
+
+---
+
+### File 8: controller/README.md
+
+Brief documentation: what each file does, how to run, what the metrics mean, how to update Jetson benchmarks.
+
+---
+
+Also in run_all.py: after all searches complete, run a Pareto frontier sweep. Sweep the adequate_rate constraint from 0.70 to 0.95 in steps of 0.05. For each constraint level, find the best threshold controller config (minimum energy subject to adequate_rate >= that level). Collect all (adequate_rate_constraint, best_energy_savings, best_config) triples.
+
+---
+
+IMPORTANT:
+- Write ALL files completely. Do not use placeholder functions or TODOs.
+- Do not run any experiments. Only write code.
+- Use only numpy, scipy, pandas, matplotlib, and optionally torch (for DQN only).
+- The prediction CSVs have columns: frame_idx, pred_miss_rate, true_miss_rate, intersection, and optionally epistemic_unc.
+- All controllers operate on the prediction stream sequentially (frame by frame) — they cannot look ahead at future predictions (except MPC which extrapolates from history).
+- The DQN trains on the prediction stream itself — it sees pred_miss_rate as input and learns what model to pick. Ground truth is only used for reward computation.
+- Make the code clean, well-commented, and thesis-quality.

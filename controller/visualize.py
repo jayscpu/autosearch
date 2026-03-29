@@ -239,3 +239,51 @@ def plot_per_intersection(intersection_results: dict, top_controllers: list,
     plt.close(fig)
     print(f"  Saved: {path}")
     return path
+
+
+def plot_pareto_frontier(pareto_results: list, save_path: str = None):
+    """Plot the Pareto frontier: adequate_rate constraint vs energy savings.
+
+    Each point is labeled with its best (t1, t2) threshold configuration.
+
+    Args:
+        pareto_results: List of (constraint, energy_savings_pct,
+                        actual_adequate_rate, config) tuples from pareto_sweep().
+        save_path: Output file path. Defaults to plots/pareto_frontier.png.
+    """
+    if not pareto_results:
+        return None
+
+    constraints = [r[0] for r in pareto_results]
+    savings = [r[1] for r in pareto_results]
+    configs = [r[3] for r in pareto_results]
+
+    fig, ax = plt.subplots(figsize=(9, 5))
+
+    ax.plot(constraints, savings, "o-", color="#1565C0", linewidth=2,
+            markersize=8, markerfacecolor="#E65100", markeredgecolor="white",
+            markeredgewidth=1.5, zorder=3)
+
+    # Label each point with threshold values
+    for i, (c, s, cfg) in enumerate(zip(constraints, savings, configs)):
+        label = f"t1={cfg['t1']:.2f}\nt2={cfg['t2']:.2f}"
+        offset_y = 1.2 if i % 2 == 0 else -2.0
+        ax.annotate(label, (c, s), textcoords="offset points",
+                    xytext=(0, 12 if offset_y > 0 else -18),
+                    fontsize=6.5, ha="center", va="bottom" if offset_y > 0 else "top",
+                    bbox=dict(boxstyle="round,pad=0.2", fc="#FFF9C4", ec="gray",
+                              alpha=0.8))
+
+    ax.set_xlabel("Adequate Rate Constraint", fontsize=11)
+    ax.set_ylabel("Energy Savings vs AlwaysMedium (%)", fontsize=11)
+    ax.set_title("Pareto Frontier: Adequacy vs Energy Savings", fontsize=12)
+    ax.grid(True, alpha=0.3)
+    ax.set_xlim(0.68, 0.97)
+
+    plt.tight_layout()
+    if save_path is None:
+        save_path = os.path.join(PLOTS_DIR, "pareto_frontier.png")
+    fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  Saved: {save_path}")
+    return save_path

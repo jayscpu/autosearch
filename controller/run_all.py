@@ -30,11 +30,12 @@ from controller.controllers import (
 from controller.metrics import evaluate
 from controller.search import (
     search_threshold, search_threshold_hysteresis, search_mpc,
-    search_dqn, search_proxy,
+    search_dqn, search_proxy, pareto_sweep,
 )
 from controller.budget import run_budget_constrained
 from controller.visualize import (
     plot_timeline, plot_energy_comparison, plot_per_intersection,
+    plot_pareto_frontier,
 )
 
 
@@ -226,6 +227,23 @@ def process_prediction_file(csv_path: str, skip_dqn: bool = False):
         all_results.append(proxy_best_result)
     else:
         print("\n── Proxy search skipped (no epistemic_unc column) ──")
+
+    # ── 6b. Pareto frontier sweep ───────────────────────────────────────
+    print("\n── Pareto Frontier Sweep ──")
+    pareto_results = pareto_sweep(pred, true, MODELS, epistemic_unc=unc)
+
+    # Print Pareto table
+    print(f"\n  {'Constraint':>12s} | {'Savings%':>9s} | {'Adequate':>9s} | "
+          f"{'t1':>6s} | {'t2':>6s}")
+    print("  " + "-" * 55)
+    for constraint, savings, adequate, cfg in pareto_results:
+        print(f"  {constraint:>11.2f}  | {savings:>8.1f}% | {adequate:>9.3f} | "
+              f"{cfg['t1']:>6.3f} | {cfg['t2']:>6.3f}")
+
+    # Plot Pareto frontier
+    pareto_plot_path = os.path.join(os.path.dirname(__file__), "plots",
+                                    f"pareto_{file_tag}.png")
+    plot_pareto_frontier(pareto_results, save_path=pareto_plot_path)
 
     # ── 7. Budget-constrained runs ───────────────────────────────────────
     print("\n── Budget-Constrained Simulation ──")
