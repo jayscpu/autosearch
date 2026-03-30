@@ -146,7 +146,7 @@ def search_mpc(pred_miss_rates: np.ndarray, true_miss_rates: np.ndarray,
     # Warm-start: use top 3 threshold configs
     if threshold_results and len(threshold_results) >= 3:
         t_pairs = [(r["config"]["t1"], r["config"]["t2"])
-                   for r in threshold_results[:3]]
+                   for r in threshold_results[:1]]
     else:
         # Fallback defaults
         t_pairs = [(0.10, 0.30), (0.15, 0.35), (0.20, 0.40)]
