@@ -1,0 +1,330 @@
+[
+  {
+    "controller": "AlwaysNano",
+    "avg_energy_mj": 1280.3999999999999,
+    "energy_savings_pct": 65.64436931498028,
+    "oracle_gap": -0.824673142437239,
+    "switches_per_100": 0.0,
+    "adequate_rate": 0.136986301369863,
+    "under_provision_rate": 0.863013698630137,
+    "over_provision_rate": 0.0,
+    "correct_provision_rate": 0.136986301369863,
+    "model_distribution": {
+      "nano": 100.0,
+      "small": 0.0,
+      "medium": 0.0
+    },
+    "avg_latency_ms": 12.889999999999999,
+    "n_frames": 4234
+  },
+  {
+    "controller": "AlwaysMedium",
+    "avg_energy_mj": 3726.900000000001,
+    "energy_savings_pct": -2.220446049250313e-14,
+    "oracle_gap": 1.0000000000000007,
+    "switches_per_100": 0.0,
+    "adequate_rate": 1.0,
+    "under_provision_rate": 0.0,
+    "over_provision_rate": 0.6976854038734057,
+    "correct_provision_rate": 0.3023145961265942,
+    "model_distribution": {
+      "nano": 0.0,
+      "small": 0.0,
+      "medium": 100.0
+    },
+    "avg_latency_ms": 26.400000000000002,
+    "n_frames": 4234
+  },
+  {
+    "controller": "BestFixed(small)",
+    "avg_energy_mj": 1929.75,
+    "energy_savings_pct": 48.221041616356764,
+    "oracle_gap": -0.34036841934644757,
+    "switches_per_100": 0.0,
+    "adequate_rate": 0.6976854038734057,
+    "under_provision_rate": 0.3023145961265942,
+    "over_provision_rate": 0.136986301369863,
+    "correct_provision_rate": 0.5606991025035427,
+    "model_distribution": {
+      "nano": 0.0,
+      "small": 100.0,
+      "medium": 0.0
+    },
+    "avg_latency_ms": 16.58,
+    "n_frames": 4234
+  },
+  {
+    "controller": "Random",
+    "avg_energy_mj": 2292.9221029286728,
+    "energy_savings_pct": 38.476425368840786,
+    "oracle_gap": -0.06950376277730728,
+    "switches_per_100": 65.80066131317903,
+    "adequate_rate": 0.5963627775153519,
+    "under_provision_rate": 0.40363722248464806,
+    "over_provision_rate": 0.27562588568729335,
+    "correct_provision_rate": 0.3207368918280586,
+    "model_distribution": {
+      "nano": 34.60085025980161,
+      "small": 33.112895606991025,
+      "medium": 32.28625413320737
+    },
+    "avg_latency_ms": 18.47373878129428,
+    "n_frames": 4234
+  },
+  {
+    "controller": "Oracle",
+    "avg_energy_mj": 2386.1119196032123,
+    "energy_savings_pct": 35.97596072866961,
+    "oracle_gap": 0.0,
+    "switches_per_100": 36.46669815777043,
+    "adequate_rate": 1.0,
+    "under_provision_rate": 0.0,
+    "over_provision_rate": 0.0,
+    "correct_provision_rate": 1.0,
+    "model_distribution": {
+      "nano": 13.698630136986301,
+      "small": 56.06991025035427,
+      "medium": 30.23145961265942
+    },
+    "avg_latency_ms": 19.043249881908356,
+    "n_frames": 4234
+  },
+  {
+    "controller": "Threshold(t1=0.500, t2=0.593)",
+    "avg_energy_mj": 1830.9912077231932,
+    "energy_savings_pct": 50.87093273972489,
+    "oracle_gap": -0.4140256913051754,
+    "switches_per_100": 26.35805384978743,
+    "adequate_rate": 0.5132262635805385,
+    "under_provision_rate": 0.4867737364194615,
+    "over_provision_rate": 0.056211620217288615,
+    "correct_provision_rate": 0.4570146433632499,
+    "model_distribution": {
+      "nano": 39.46622579121398,
+      "small": 51.91308455361361,
+      "medium": 8.620689655172415
+    },
+    "avg_latency_ms": 15.97024799244213,
+    "n_frames": 4234
+  },
+  {
+    "controller": "ThreshHyst(t1=0.044, t2=0.619, n=5)",
+    "avg_energy_mj": 2010.3967879074162,
+    "energy_savings_pct": 46.05713091557552,
+    "oracle_gap": -0.2802196239577312,
+    "switches_per_100": 0.1889466225791214,
+    "adequate_rate": 0.7246102975909305,
+    "under_provision_rate": 0.27538970240906946,
+    "over_provision_rate": 0.15493623051487954,
+    "correct_provision_rate": 0.5696740670760511,
+    "model_distribution": {
+      "nano": 0.0,
+      "small": 95.51251771374586,
+      "medium": 4.487482286254133
+    },
+    "avg_latency_ms": 17.020670760510153,
+    "n_frames": 4234
+  },
+  {
+    "controller": "BayesMPC(H=2, \u03bbu=3.0, \u03bbo=0.1, ws=0.0)",
+    "avg_energy_mj": 2040.5332191780824,
+    "energy_savings_pct": 45.248511653704625,
+    "oracle_gap": -0.25774296883878967,
+    "switches_per_100": 9.636277751535191,
+    "adequate_rate": 0.7293339631554085,
+    "under_provision_rate": 0.2706660368445914,
+    "over_provision_rate": 0.16698157770429853,
+    "correct_provision_rate": 0.5623523854511101,
+    "model_distribution": {
+      "nano": 0.0,
+      "small": 93.83561643835617,
+      "medium": 6.164383561643835
+    },
+    "avg_latency_ms": 17.185342465753422,
+    "n_frames": 4234
+  },
+  {
+    "controller": "Threshold(t1=0.500, t2=0.593) [budget k=1.0]",
+    "avg_energy_mj": 1691.761204747284,
+    "energy_savings_pct": 54.60674542522514,
+    "switches_per_100": 21.374586679263107,
+    "adequate_rate": 0.4761454888993859,
+    "under_provision_rate": 0.5238545111006141,
+    "over_provision_rate": 0.01582427964100142,
+    "correct_provision_rate": 0.4603212092583845,
+    "model_distribution": {
+      "nano": 39.46622579121398,
+      "small": 59.65989607935758,
+      "medium": 0.8738781294284366
+    },
+    "avg_latency_ms": 15.209511100614073,
+    "n_frames": 4234,
+    "time_in_degraded_pct": 0.0,
+    "final_budget_utilization": 0.8766737684919133,
+    "budget_exhausted_at_frame": -1,
+    "total_budget_j": 8170.5615,
+    "total_consumed_j": 7162.91694089994,
+    "kappa": 1.0
+  },
+  {
+    "controller": "BayesMPC(H=2, \u03bbu=3.0, \u03bbo=0.1, ws=0.0) [budget k=1.0]",
+    "avg_energy_mj": 1929.75,
+    "energy_savings_pct": 48.221041616356764,
+    "switches_per_100": 0.0,
+    "adequate_rate": 0.6976854038734057,
+    "under_provision_rate": 0.3023145961265942,
+    "over_provision_rate": 0.136986301369863,
+    "correct_provision_rate": 0.5606991025035427,
+    "model_distribution": {
+      "nano": 0.0,
+      "small": 100.0,
+      "medium": 0.0
+    },
+    "avg_latency_ms": 16.58,
+    "n_frames": 4234,
+    "time_in_degraded_pct": 0.0,
+    "final_budget_utilization": 1.0,
+    "budget_exhausted_at_frame": -1,
+    "total_budget_j": 8170.5615,
+    "total_consumed_j": 8170.5615,
+    "kappa": 1.0
+  },
+  {
+    "controller": "Threshold(t1=0.500, t2=0.593) [budget k=1.5]",
+    "avg_energy_mj": 1776.2281036608406,
+    "energy_savings_pct": 52.34033369124902,
+    "switches_per_100": 25.36608408124705,
+    "adequate_rate": 0.49574870099196977,
+    "under_provision_rate": 0.5042512990080302,
+    "over_provision_rate": 0.043221539914974016,
+    "correct_provision_rate": 0.45252716107699575,
+    "model_distribution": {
+      "nano": 39.46622579121398,
+      "small": 54.959848842701945,
+      "medium": 5.573925366084081
+    },
+    "avg_latency_ms": 15.671055739253658,
+    "n_frames": 4234,
+    "time_in_degraded_pct": 0.0,
+    "final_budget_utilization": 0.9204446708956309,
+    "budget_exhausted_at_frame": -1,
+    "total_budget_j": 8170.5615,
+    "total_consumed_j": 7520.549790900012,
+    "kappa": 1.5
+  },
+  {
+    "controller": "BayesMPC(H=2, \u03bbu=3.0, \u03bbo=0.1, ws=0.0) [budget k=1.5]",
+    "avg_energy_mj": 1929.75,
+    "energy_savings_pct": 48.221041616356764,
+    "switches_per_100": 0.0,
+    "adequate_rate": 0.6976854038734057,
+    "under_provision_rate": 0.3023145961265942,
+    "over_provision_rate": 0.136986301369863,
+    "correct_provision_rate": 0.5606991025035427,
+    "model_distribution": {
+      "nano": 0.0,
+      "small": 100.0,
+      "medium": 0.0
+    },
+    "avg_latency_ms": 16.58,
+    "n_frames": 4234,
+    "time_in_degraded_pct": 0.0,
+    "final_budget_utilization": 1.0,
+    "budget_exhausted_at_frame": -1,
+    "total_budget_j": 8170.5615,
+    "total_consumed_j": 8170.5615,
+    "kappa": 1.5
+  },
+  {
+    "controller": "Threshold(t1=0.500, t2=0.593) [budget k=2.0]",
+    "avg_energy_mj": 1830.9912077231932,
+    "energy_savings_pct": 50.87093273972489,
+    "switches_per_100": 26.35805384978743,
+    "adequate_rate": 0.5132262635805385,
+    "under_provision_rate": 0.4867737364194615,
+    "over_provision_rate": 0.056211620217288615,
+    "correct_provision_rate": 0.4570146433632499,
+    "model_distribution": {
+      "nano": 39.46622579121398,
+      "small": 51.91308455361361,
+      "medium": 8.620689655172415
+    },
+    "avg_latency_ms": 15.97024799244213,
+    "n_frames": 4234,
+    "time_in_degraded_pct": 0.0,
+    "final_budget_utilization": 0.9488230121638564,
+    "budget_exhausted_at_frame": -1,
+    "total_budget_j": 8170.5615,
+    "total_consumed_j": 7752.416773500037,
+    "kappa": 2.0
+  },
+  {
+    "controller": "BayesMPC(H=2, \u03bbu=3.0, \u03bbo=0.1, ws=0.0) [budget k=2.0]",
+    "avg_energy_mj": 1942.3390529050544,
+    "energy_savings_pct": 47.88325275953059,
+    "switches_per_100": 2.9995276334435523,
+    "adequate_rate": 0.680444024563061,
+    "under_provision_rate": 0.3195559754369391,
+    "over_provision_rate": 0.1471421823334908,
+    "correct_provision_rate": 0.5333018422295701,
+    "model_distribution": {
+      "nano": 3.9442607463391592,
+      "small": 93.93008974964573,
+      "medium": 2.1256495040151155
+    },
+    "avg_latency_ms": 16.643195559754364,
+    "n_frames": 4234,
+    "time_in_degraded_pct": 0.9683514407179971,
+    "final_budget_utilization": 1.0065236703744367,
+    "budget_exhausted_at_frame": 4193,
+    "total_budget_j": 8170.5615,
+    "total_consumed_j": 8223.863550000062,
+    "kappa": 2.0
+  },
+  {
+    "controller": "Threshold(t1=0.500, t2=0.593) [budget k=3.0]",
+    "avg_energy_mj": 1830.9912077231932,
+    "energy_savings_pct": 50.87093273972489,
+    "switches_per_100": 26.35805384978743,
+    "adequate_rate": 0.5132262635805385,
+    "under_provision_rate": 0.4867737364194615,
+    "over_provision_rate": 0.056211620217288615,
+    "correct_provision_rate": 0.4570146433632499,
+    "model_distribution": {
+      "nano": 39.46622579121398,
+      "small": 51.91308455361361,
+      "medium": 8.620689655172415
+    },
+    "avg_latency_ms": 15.97024799244213,
+    "n_frames": 4234,
+    "time_in_degraded_pct": 0.0,
+    "final_budget_utilization": 0.9488230121638564,
+    "budget_exhausted_at_frame": -1,
+    "total_budget_j": 8170.5615,
+    "total_consumed_j": 7752.416773500037,
+    "kappa": 3.0
+  },
+  {
+    "controller": "BayesMPC(H=2, \u03bbu=3.0, \u03bbo=0.1, ws=0.0) [budget k=3.0]",
+    "avg_energy_mj": 1978.144697685404,
+    "energy_savings_pct": 46.92251743579372,
+    "switches_per_100": 8.478979688238072,
+    "adequate_rate": 0.6672177609825224,
+    "under_provision_rate": 0.33278223901747755,
+    "over_provision_rate": 0.16013226263580538,
+    "correct_provision_rate": 0.507085498346717,
+    "model_distribution": {
+      "nano": 7.581483230987246,
+      "small": 86.98630136986301,
+      "medium": 5.43221539914974
+    },
+    "avg_latency_ms": 16.83368682097307,
+    "n_frames": 4234,
+    "time_in_degraded_pct": 3.7789324515824276,
+    "final_budget_utilization": 1.0250782213682832,
+    "budget_exhausted_at_frame": 4074,
+    "total_budget_j": 8170.5615,
+    "total_consumed_j": 8375.46465000017,
+    "kappa": 3.0
+  }
+]
