@@ -1,0 +1,101 @@
+  Device: cuda
+  Loaded ranking of 65 features from perm_importance_h256_full.tsv
+
+  ═══ top15: 15 features ═══
+    features: ['foreground_edge_density', 'foreground_blob_count', 'glcm_homogeneity', 'glcm_entropy', 'foreground_blob_pa_ratio', 'dark_channel_mean', 'bot_high_freq_energy', 'saturation_mean', 'glcm_energy', 'mscn_kurtosis', 'foreground_pixel_ratio', 'mid_high_freq_energy', 'keypoint_loss_ratio', 'fast_keypoints_half', 'mscn_v_pair_mean']
+
+    === top15 seed 42 ===
+      [top15_s42] ep  0 val=0.017481 best=0.017481 pat=0
+      [top15_s42] ep 20 val=0.016424 best=0.015630 pat=7
+      [top15_s42] ep 40 val=0.015747 best=0.015307 pat=19
+      [top15_s42] ep 60 val=0.015811 best=0.015307 pat=39
+      [top15_s42] ep 61 val=0.015623 best=0.015307 pat=40
+      nano r=0.7544  rec_ns r=0.3335  rec_sm r=0.2057  (733s)
+
+    === top15 seed 43 ===
+      [top15_s43] ep  0 val=0.017086 best=0.017086 pat=0
+      [top15_s43] ep 20 val=0.016502 best=0.016216 pat=7
+      [top15_s43] ep 40 val=0.016858 best=0.016022 pat=19
+      [top15_s43] ep 60 val=0.016872 best=0.016022 pat=39
+      [top15_s43] ep 61 val=0.016938 best=0.016022 pat=40
+      nano r=0.7339  rec_ns r=0.5036  rec_sm r=0.2091  (904s)
+
+    === top15 seed 44 ===
+      [top15_s44] ep  0 val=0.018355 best=0.018355 pat=0
+      [top15_s44] ep 20 val=0.016544 best=0.015715 pat=3
+      [top15_s44] ep 40 val=0.015890 best=0.015358 pat=11
+      [top15_s44] ep 60 val=0.015751 best=0.015358 pat=31
+      [top15_s44] ep 69 val=0.016052 best=0.015358 pat=40
+      nano r=0.7720  rec_ns r=0.4736  rec_sm r=0.1530  (1020s)
+
+  ═══ top20: 20 features ═══
+    features: ['foreground_edge_density', 'foreground_blob_count', 'glcm_homogeneity', 'glcm_entropy', 'foreground_blob_pa_ratio', 'dark_channel_mean', 'bot_high_freq_energy', 'saturation_mean', 'glcm_energy', 'mscn_kurtosis', 'foreground_pixel_ratio', 'mid_high_freq_energy', 'keypoint_loss_ratio', 'fast_keypoints_half', 'mscn_v_pair_mean', 'foreground_blob_area_mean', 'mean_brightness', 'edge_fine_coarse_ratio', 'total_edge_components', 'small_edge_components']
+
+    === top20 seed 42 ===
+      [top20_s42] ep  0 val=0.019446 best=0.019446 pat=0
+      [top20_s42] ep 20 val=0.017409 best=0.017409 pat=0
+      [top20_s42] ep 40 val=0.017595 best=0.016705 pat=7
+      [top20_s42] ep 60 val=0.016828 best=0.016317 pat=15
+      [top20_s42] ep 80 val=0.017058 best=0.016317 pat=35
+      [top20_s42] ep 85 val=0.017334 best=0.016317 pat=40
+      nano r=0.7433  rec_ns r=0.3970  rec_sm r=0.1730  (1256s)
+
+    === top20 seed 43 ===
+      [top20_s43] ep  0 val=0.019548 best=0.019548 pat=0
+      [top20_s43] ep 20 val=0.017445 best=0.016904 pat=9
+      [top20_s43] ep 40 val=0.016851 best=0.016634 pat=3
+      [top20_s43] ep 60 val=0.016862 best=0.016530 pat=12
+      [top20_s43] ep 80 val=0.017009 best=0.016530 pat=32
+      [top20_s43] ep 88 val=0.017081 best=0.016530 pat=40
+      nano r=0.7908  rec_ns r=0.6225  rec_sm r=0.2343  (1299s)
+
+    === top20 seed 44 ===
+      [top20_s44] ep  0 val=0.019160 best=0.019160 pat=0
+      [top20_s44] ep 20 val=0.016981 best=0.016436 pat=4
+      [top20_s44] ep 40 val=0.015942 best=0.015716 pat=3
+      [top20_s44] ep 60 val=0.016358 best=0.015716 pat=23
+      [top20_s44] ep 77 val=0.016816 best=0.015716 pat=40
+      nano r=0.7689  rec_ns r=0.5834  rec_sm r=0.2002  (1140s)
+
+  ═══ top25: 25 features ═══
+    features: ['foreground_edge_density', 'foreground_blob_count', 'glcm_homogeneity', 'glcm_entropy', 'foreground_blob_pa_ratio', 'dark_channel_mean', 'bot_high_freq_energy', 'saturation_mean', 'glcm_energy', 'mscn_kurtosis', 'foreground_pixel_ratio', 'mid_high_freq_energy', 'keypoint_loss_ratio', 'fast_keypoints_half', 'mscn_v_pair_mean', 'foreground_blob_area_mean', 'mean_brightness', 'edge_fine_coarse_ratio', 'total_edge_components', 'small_edge_components', 'ratio_top_bot_edge_density', 'top_edge_density', 'fast_keypoints_full', 'rms_contrast', 'mscn_skewness']
+
+    === top25 seed 42 ===
+      [top25_s42] ep  0 val=0.017237 best=0.017237 pat=0
+      [top25_s42] ep 20 val=0.016712 best=0.015431 pat=1
+      [top25_s42] ep 40 val=0.016067 best=0.014938 pat=19
+      [top25_s42] ep 60 val=0.016337 best=0.014938 pat=39
+      [top25_s42] ep 61 val=0.016222 best=0.014938 pat=40
+      nano r=0.7650  rec_ns r=0.5170  rec_sm r=0.2291  (905s)
+
+    === top25 seed 43 ===
+      [top25_s43] ep  0 val=0.017918 best=0.017918 pat=0
+      [top25_s43] ep 20 val=0.016235 best=0.016235 pat=0
+      [top25_s43] ep 40 val=0.016644 best=0.016235 pat=20
+      [top25_s43] ep 60 val=0.016786 best=0.016235 pat=40
+      nano r=0.7771  rec_ns r=0.4283  rec_sm r=0.3128  (891s)
+
+    === top25 seed 44 ===
+      [top25_s44] ep  0 val=0.017605 best=0.017605 pat=0
+      [top25_s44] ep 20 val=0.016127 best=0.016127 pat=0
+      [top25_s44] ep 40 val=0.017082 best=0.016127 pat=20
+      [top25_s44] ep 60 val=0.017441 best=0.016127 pat=40
+      nano r=0.6892  rec_ns r=0.6252  rec_sm r=0.2396  (891s)
+
+========================================================================================
+  SUMMARY (3 seeds, mean ± std)
+========================================================================================
+  subset     |          nano (r) |        rec_ns (r) |        rec_sm (r)
+  ----------------------------------------------------------------------
+  full_65    |               n/a | 0.6470 ± 0.0160 | 0.2750 ± 0.0190  (reference)
+  ----------------------------------------------------------------------
+  top15      | 0.7534 ± 0.0156 | 0.4369 ± 0.0741 | 0.1893 ± 0.0257
+             Δ vs full_65:  rec_ns=-0.2101  rec_sm=-0.0857
+  top20      | 0.7677 ± 0.0194 | 0.5343 ± 0.0984 | 0.2025 ± 0.0251
+             Δ vs full_65:  rec_ns=-0.1127  rec_sm=-0.0725
+  top25      | 0.7438 ± 0.0389 | 0.5235 ± 0.0805 | 0.2605 ± 0.0372
+             Δ vs full_65:  rec_ns=-0.1235  rec_sm=-0.0145
+========================================================================================
+
+  Saved /home/aljouhara/autosearch/feature_ablation/subset_validation.tsv
+  Total time: 9049.5s

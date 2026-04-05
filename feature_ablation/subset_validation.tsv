@@ -1,0 +1,5 @@
+subset	n_features	nano_r_mean	nano_r_std	rec_ns_r_mean	rec_ns_r_std	rec_sm_r_mean	rec_sm_r_std	rec_ns_delta_vs_full65	rec_sm_delta_vs_full65
+top15	15	0.7534	0.0156	0.4369	0.0741	0.1893	0.0257	-0.2101	-0.0857
+top20	20	0.7677	0.0194	0.5343	0.0984	0.2025	0.0251	-0.1127	-0.0725
+top25	25	0.7438	0.0389	0.5235	0.0805	0.2605	0.0372	-0.1235	-0.0145
+full_65	65			0.647	0.016	0.275	0.019	0.0	0.0
