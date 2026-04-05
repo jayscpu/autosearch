@@ -1,0 +1,129 @@
+  Device: cuda
+  n_features=65, n_steps=5
+  Windows: train=15541 es=1523 eval=10584
+
+  ═══ Seed 42 ═══
+    [seed42] ep  0 val=0.016519 best=0.016519 pat=0
+    [seed42] ep 20 val=0.016767 best=0.015823 pat=11
+    [seed42] ep 40 val=0.017099 best=0.015823 pat=31
+    [seed42] ep 49 val=0.017329 best=0.015823 pat=40
+    baseline: r_ns=0.6296  r_sm=0.2481
+    feat 10/65 (keypoint_loss_ratio           ) ns_drop=+0.0208 sm_drop=-0.0005  [289s]
+    feat 20/65 (foreground_blob_count         ) ns_drop=+0.0597 sm_drop=+0.0253  [578s]
+    feat 30/65 (glcm_homogeneity              ) ns_drop=+0.0342 sm_drop=+0.0043  [867s]
+    feat 40/65 (rms_contrast                  ) ns_drop=+0.0044 sm_drop=-0.0030  [1156s]
+    feat 50/65 (mscn_v_pair_std               ) ns_drop=-0.0078 sm_drop=-0.0038  [1446s]
+    feat 60/65 (bot_gradient_std              ) ns_drop=-0.0063 sm_drop=-0.0029  [1735s]
+    feat 65/65 (ratio_top_bot_laplacian_var   ) ns_drop=+0.0065 sm_drop=-0.0031  [1879s]
+
+  ═══ Seed 43 ═══
+    [seed43] ep  0 val=0.017235 best=0.017235 pat=0
+    [seed43] ep 20 val=0.017078 best=0.015997 pat=8
+    [seed43] ep 40 val=0.017289 best=0.015997 pat=28
+    [seed43] ep 52 val=0.017059 best=0.015997 pat=40
+    baseline: r_ns=0.6679  r_sm=0.2932
+    feat 10/65 (keypoint_loss_ratio           ) ns_drop=+0.0238 sm_drop=+0.0076  [289s]
+    feat 20/65 (foreground_blob_count         ) ns_drop=+0.0475 sm_drop=+0.0433  [578s]
+    feat 30/65 (glcm_homogeneity              ) ns_drop=+0.0637 sm_drop=+0.0201  [867s]
+    feat 40/65 (rms_contrast                  ) ns_drop=+0.0094 sm_drop=+0.0031  [1156s]
+    feat 50/65 (mscn_v_pair_std               ) ns_drop=-0.0093 sm_drop=-0.0014  [1445s]
+    feat 60/65 (bot_gradient_std              ) ns_drop=-0.0032 sm_drop=-0.0057  [1734s]
+    feat 65/65 (ratio_top_bot_laplacian_var   ) ns_drop=+0.0077 sm_drop=+0.0009  [1879s]
+
+  ═══ Seed 44 ═══
+    [seed44] ep  0 val=0.016527 best=0.016527 pat=0
+    [seed44] ep 20 val=0.016654 best=0.015931 pat=16
+    [seed44] ep 40 val=0.017064 best=0.015931 pat=36
+    [seed44] ep 44 val=0.016853 best=0.015931 pat=40
+    baseline: r_ns=0.6421  r_sm=0.2828
+    feat 10/65 (keypoint_loss_ratio           ) ns_drop=+0.0005 sm_drop=+0.0211  [287s]
+    feat 20/65 (foreground_blob_count         ) ns_drop=+0.0834 sm_drop=+0.0133  [576s]
+    feat 30/65 (glcm_homogeneity              ) ns_drop=+0.0287 sm_drop=+0.0178  [865s]
+    feat 40/65 (rms_contrast                  ) ns_drop=-0.0038 sm_drop=+0.0054  [1154s]
+    feat 50/65 (mscn_v_pair_std               ) ns_drop=-0.0093 sm_drop=+0.0037  [1444s]
+    feat 60/65 (bot_gradient_std              ) ns_drop=-0.0039 sm_drop=-0.0078  [1733s]
+    feat 65/65 (ratio_top_bot_laplacian_var   ) ns_drop=+0.0013 sm_drop=-0.0019  [1877s]
+
+  Saved /home/aljouhara/autosearch/feature_ablation/perm_importance_h256.tsv
+
+  ====================================================================
+  TOP 20 by ns_drop_mean (r_recovery_ns importance)
+  ====================================================================
+  rank feature                            ns_drop_mean        std
+  --------------------------------------------------------------------
+     1 foreground_edge_density                0.110436   0.013770
+     2 foreground_blob_count                  0.063525   0.014961
+     3 glcm_homogeneity                       0.042223   0.015371
+     4 bot_high_freq_energy                   0.041700   0.007999
+     5 glcm_entropy                           0.039851   0.009643
+     6 foreground_blob_pa_ratio               0.025063   0.001875
+     7 dark_channel_mean                      0.023193   0.013616
+     8 saturation_mean                        0.021565   0.004224
+     9 mid_high_freq_energy                   0.020928   0.007349
+    10 glcm_energy                            0.016297   0.010837
+    11 mscn_v_pair_mean                       0.015438   0.005684
+    12 keypoint_loss_ratio                    0.015048   0.010351
+    13 ratio_top_bot_edge_density             0.015031   0.006056
+    14 mscn_kurtosis                          0.014859   0.010369
+    15 small_edge_components                  0.013140   0.006774
+    16 fast_keypoints_half                    0.012917   0.007790
+    17 total_edge_components                  0.011983   0.002851
+    18 foreground_pixel_ratio                 0.011878   0.002121
+    19 edge_fine_coarse_ratio                 0.010456   0.002688
+    20 glcm_contrast                          0.008091   0.007396
+
+  ====================================================================
+  TOP 20 by sm_drop_mean (r_recovery_sm importance)
+  ====================================================================
+  rank feature                            sm_drop_mean        std
+  --------------------------------------------------------------------
+     1 foreground_blob_count                  0.027263   0.012397
+     2 foreground_blob_pa_ratio               0.024014   0.004266
+     3 mid_edge_density                       0.021319   0.022772
+     4 glcm_entropy                           0.018535   0.004308
+     5 glcm_energy                            0.018195   0.011278
+     6 saturation_mean                        0.017206   0.005883
+     7 foreground_edge_density                0.016088   0.007299
+     8 foreground_pixel_ratio                 0.015738   0.003571
+     9 mscn_kurtosis                          0.015465   0.002992
+    10 glcm_homogeneity                       0.014083   0.006972
+    11 mean_brightness                        0.011042   0.015630
+    12 foreground_blob_area_mean              0.009814   0.001805
+    13 keypoint_loss_ratio                    0.009402   0.008888
+    14 fast_keypoints_half                    0.008719   0.006176
+    15 dark_channel_mean                      0.007999   0.003835
+    16 edge_fine_coarse_ratio                 0.007396   0.002893
+    17 top_edge_density                       0.007290   0.002032
+    18 temporal_diff_std                      0.007002   0.005592
+    19 mid_high_freq_energy                   0.006521   0.015245
+    20 overall_edge_density                   0.006187   0.006119
+
+  ====================================================================
+  TOP 20 by combined_score (0.5*ns + 0.5*sm)
+  ====================================================================
+  rank feature                          combined_score        std
+  --------------------------------------------------------------------
+     1 foreground_edge_density                0.063262        nan
+     2 foreground_blob_count                  0.045394        nan
+     3 glcm_entropy                           0.029193        nan
+     4 glcm_homogeneity                       0.028153        nan
+     5 foreground_blob_pa_ratio               0.024539        nan
+     6 bot_high_freq_energy                   0.021793        nan
+     7 saturation_mean                        0.019386        nan
+     8 glcm_energy                            0.017246        nan
+     9 dark_channel_mean                      0.015596        nan
+    10 mscn_kurtosis                          0.015162        nan
+    11 foreground_pixel_ratio                 0.013808        nan
+    12 mid_high_freq_energy                   0.013724        nan
+    13 keypoint_loss_ratio                    0.012225        nan
+    14 fast_keypoints_half                    0.010818        nan
+    15 ratio_top_bot_edge_density             0.008948        nan
+    16 edge_fine_coarse_ratio                 0.008926        nan
+    17 mscn_v_pair_mean                       0.008441        nan
+    18 foreground_blob_area_mean              0.007718        nan
+    19 total_edge_components                  0.007619        nan
+    20 small_edge_components                  0.007502        nan
+
+  Saved /home/aljouhara/autosearch/feature_ablation/perm_importance_h256.png
+
+  Total time: 7940.2s
