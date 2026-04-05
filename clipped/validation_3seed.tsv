@@ -1,0 +1,3 @@
+config	nano_r_mean	nano_r_std	rec_ns_r_mean	rec_ns_r_std	rec_sm_r_mean	rec_sm_r_std
+clip_sm	0.7621	0.0104	0.6097	0.0377	0.3145	0.052
+clip_sm_normed	0.7556	0.0096	0.6645	0.0382	0.267	0.042
