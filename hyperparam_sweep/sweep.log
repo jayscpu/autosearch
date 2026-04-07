@@ -1,0 +1,160 @@
+  Device: cuda
+  Total configs: 300
+  [cache] built windows (15, 12, 7, 15): train=33454 es=3062 eval=21281
+    [1/300] w15_h12_lr0.0005_d0.2             nano=0.7456 ns=0.5886 sm=0.2880 comb=0.4383 ep13 (350s)
+    [2/300] w15_h12_lr0.0005_d0.3             nano=0.7439 ns=0.5895 sm=0.2763 comb=0.4329 ep11 (370s)
+    [3/300] w15_h12_lr0.0005_d0.4             nano=0.7452 ns=0.5851 sm=0.2749 comb=0.4300 ep9 (383s)
+    [4/300] w15_h12_lr0.0005_d0.5             nano=0.7282 ns=0.5727 sm=0.2767 comb=0.4247 ep11 (394s)
+    [5/300] w15_h12_lr0.001_d0.2              nano=0.7595 ns=0.5642 sm=0.2516 comb=0.4079 ep10 (417s)
+    [6/300] w15_h12_lr0.001_d0.3              nano=0.7492 ns=0.5543 sm=0.3085 comb=0.4314 ep10 (405s)
+    [7/300] w15_h12_lr0.001_d0.4              nano=0.7514 ns=0.5619 sm=0.2769 comb=0.4194 ep10 (407s)
+    [8/300] w15_h12_lr0.001_d0.5              nano=0.7506 ns=0.5470 sm=0.2966 comb=0.4218 ep10 (377s)
+    [9/300] w15_h12_lr0.003_d0.2              nano=0.7544 ns=0.6397 sm=0.3131 comb=0.4764 ep8 (379s)
+    [10/300] w15_h12_lr0.003_d0.3              nano=0.7447 ns=0.6119 sm=0.3051 comb=0.4585 ep8 (421s)
+    [11/300] w15_h12_lr0.003_d0.4              nano=0.7246 ns=0.6302 sm=0.2994 comb=0.4648 ep8 (397s)
+    [12/300] w15_h12_lr0.003_d0.5              nano=0.7130 ns=0.5898 sm=0.2813 comb=0.4356 ep44 (649s)
+  [cache] built windows (15, 18, 7, 15): train=33417 es=3060 eval=21277
+    [13/300] w15_h18_lr0.0005_d0.2             nano=0.7693 ns=0.5992 sm=0.2131 comb=0.4061 ep7 (439s)
+    [14/300] w15_h18_lr0.0005_d0.3             nano=0.7536 ns=0.6258 sm=0.2873 comb=0.4566 ep13 (463s)
+    [15/300] w15_h18_lr0.0005_d0.4             nano=0.7463 ns=0.6515 sm=0.2692 comb=0.4604 ep13 (456s)
+    [16/300] w15_h18_lr0.0005_d0.5             nano=0.7607 ns=0.5861 sm=0.2964 comb=0.4412 ep7 (445s)
+    [17/300] w15_h18_lr0.001_d0.2              nano=0.7700 ns=0.6286 sm=0.3001 comb=0.4644 ep17 (476s)
+    [18/300] w15_h18_lr0.001_d0.3              nano=0.7703 ns=0.5999 sm=0.2791 comb=0.4395 ep4 (381s)
+    [19/300] w15_h18_lr0.001_d0.4              nano=0.7593 ns=0.6219 sm=0.2917 comb=0.4568 ep4 (419s)
+    [20/300] w15_h18_lr0.001_d0.5              nano=0.7674 ns=0.5726 sm=0.2845 comb=0.4286 ep7 (403s)
+    [21/300] w15_h18_lr0.003_d0.2              nano=0.7756 ns=0.6558 sm=0.2468 comb=0.4513 ep12 (451s)
+    [22/300] w15_h18_lr0.003_d0.3              nano=0.7571 ns=0.5274 sm=0.3338 comb=0.4306 ep10 (418s)
+    [23/300] w15_h18_lr0.003_d0.4              nano=0.7507 ns=0.5593 sm=0.1942 comb=0.3767 ep18 (543s)
+    [24/300] w15_h18_lr0.003_d0.5              nano=0.7650 ns=0.4912 sm=0.3006 comb=0.3959 ep12 (460s)
+  [cache] built windows (15, 30, 7, 15): train=33369 es=3051 eval=21218
+    [25/300] w15_h30_lr0.0005_d0.2             nano=0.7374 ns=0.5348 sm=0.2420 comb=0.3884 ep27 (638s)
+    [26/300] w15_h30_lr0.0005_d0.3             nano=0.7850 ns=0.5962 sm=0.2383 comb=0.4172 ep27 (623s)
+    [27/300] w15_h30_lr0.0005_d0.4             nano=0.7878 ns=0.6199 sm=0.2618 comb=0.4409 ep12 (684s)
+    [28/300] w15_h30_lr0.0005_d0.5             nano=0.7804 ns=0.6037 sm=0.2621 comb=0.4329 ep12 (687s)
+    [29/300] w15_h30_lr0.001_d0.2  ERROR: CUDA error: unspecified launch failure
+Search for `cudaErrorLaunchFailure' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+
+Traceback (most recent call last):
+  File "/home/aljouhara/autosearch/hyperparam_sweep/sweep.py", line 328, in main
+    model, best_val, best_epoch = train_one(
+  File "/home/aljouhara/autosearch/hyperparam_sweep/sweep.py", line 200, in train_one
+    if torch.isnan(loss):
+torch.AcceleratorError: CUDA error: unspecified launch failure
+Search for `cudaErrorLaunchFailure' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/aljouhara/autosearch/hyperparam_sweep/sweep.py", line 407, in <module>
+    main()
+  File "/home/aljouhara/autosearch/hyperparam_sweep/sweep.py", line 336, in main
+    torch.cuda.empty_cache()
+  File "/home/aljouhara/.local/lib/python3.10/site-packages/torch/cuda/memory.py", line 280, in empty_cache
+    torch._C._cuda_emptyCache()
+torch.AcceleratorError: CUDA error: unspecified launch failure
+Search for `cudaErrorLaunchFailure' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+
+=== Sweep attempt 1 / 20  (الإثنين  6 أبريل 2026 +03 15:12:41) ===
+/home/aljouhara/.local/lib/python3.10/site-packages/torch/cuda/__init__.py:184: UserWarning: CUDA initialization: CUDA unknown error - this may be due to an incorrectly set up environment, e.g. changing env variable CUDA_VISIBLE_DEVICES after program start. Setting the available devices to be zero. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+  return torch._C._cuda_getDeviceCount() > 0
+  Device: cpu
+  Resuming: 28 configs already done
+  Total configs: 300
+  [cache] built windows (15, 30, 7, 15): train=33369 es=3051 eval=21218
+    [29/300] w15_h30_lr0.001_d0.2              nano=0.7632 ns=0.6472 sm=0.3068 comb=0.4770 ep5 (1043s)
+    [30/300] w15_h30_lr0.001_d0.3              nano=0.7694 ns=0.6038 sm=0.2840 comb=0.4439 ep27 (1525s)
+    [31/300] w15_h30_lr0.001_d0.4              nano=0.7562 ns=0.6497 sm=0.2891 comb=0.4694 ep3 (982s)
+    [32/300] w15_h30_lr0.001_d0.5              nano=0.7678 ns=0.6226 sm=0.3271 comb=0.4749 ep8 (1624s)
+    [33/300] w15_h30_lr0.003_d0.2              nano=0.7578 ns=0.6462 sm=0.2545 comb=0.4503 ep5 (1531s)
+    [34/300] w15_h30_lr0.003_d0.3              nano=0.7751 ns=0.6759 sm=0.2995 comb=0.4877 ep1 (1409s)
+    [35/300] w15_h30_lr0.003_d0.4              nano=0.7769 ns=0.6891 sm=0.3288 comb=0.5089 ep1 (1280s)
+    [36/300] w15_h30_lr0.003_d0.5              nano=0.7120 ns=0.4794 sm=0.2964 comb=0.3879 ep27 (2209s)
+  [cache] built windows (15, 42, 7, 15): train=33292 es=3042 eval=21163
+    [37/300] w15_h42_lr0.0005_d0.2             nano=0.7667 ns=0.6229 sm=0.2816 comb=0.4522 ep1 (882s)
+    [38/300] w15_h42_lr0.0005_d0.3             nano=0.7869 ns=0.5805 sm=0.2804 comb=0.4305 ep10 (1191s)
+    [39/300] w15_h42_lr0.0005_d0.4             nano=0.7846 ns=0.5422 sm=0.3133 comb=0.4278 ep10 (1084s)
+    [40/300] w15_h42_lr0.0005_d0.5             nano=0.7798 ns=0.5876 sm=0.3180 comb=0.4528 ep10 (1027s)
+    [41/300] w15_h42_lr0.001_d0.2              nano=0.7271 ns=0.5790 sm=0.2347 comb=0.4069 ep12 (1207s)
+    [42/300] w15_h42_lr0.001_d0.3              nano=0.7859 ns=0.6076 sm=0.2568 comb=0.4322 ep10 (1238s)
+    [43/300] w15_h42_lr0.001_d0.4              nano=0.7844 ns=0.6109 sm=0.3010 comb=0.4560 ep10 (1180s)
+    [44/300] w15_h42_lr0.001_d0.5              nano=0.7694 ns=0.6081 sm=0.2821 comb=0.4451 ep13 (1249s)
+    [45/300] w15_h42_lr0.003_d0.2              nano=0.7152 ns=0.6090 sm=0.2934 comb=0.4512 ep24 (1670s)
+    [46/300] w15_h42_lr0.003_d0.3              nano=0.7871 ns=0.5906 sm=0.2814 comb=0.4360 ep3 (1070s)
+    [47/300] w15_h42_lr0.003_d0.4              nano=0.7280 ns=0.6153 sm=0.3067 comb=0.4610 ep13 (1658s)
+    [48/300] w15_h42_lr0.003_d0.5              nano=0.7524 ns=0.7127 sm=0.2269 comb=0.4698 ep13 (1620s)
+  [cache] built windows (15, 60, 7, 15): train=33183 es=3031 eval=21100
+    [49/300] w15_h60_lr0.0005_d0.2             nano=0.7830 ns=0.5379 sm=0.2169 comb=0.3774 ep6 (2008s)
+    [50/300] w15_h60_lr0.0005_d0.3             nano=0.7851 ns=0.5739 sm=0.2384 comb=0.4062 ep6 (1485s)
+    [51/300] w15_h60_lr0.0005_d0.4             nano=0.7721 ns=0.6391 sm=0.2683 comb=0.4537 ep12 (1372s)
+    [52/300] w15_h60_lr0.0005_d0.5             nano=0.7712 ns=0.5826 sm=0.3016 comb=0.4421 ep11 (1336s)
+Terminated
+=== sweep.py exited with code 143 — restarting in 10s ===
+=== Sweep attempt 2 / 20  (الثلاثاء  7 أبريل 2026 +03  0:30:57) ===
+/home/aljouhara/.local/lib/python3.10/site-packages/torch/cuda/__init__.py:184: UserWarning: CUDA initialization: CUDA unknown error - this may be due to an incorrectly set up environment, e.g. changing env variable CUDA_VISIBLE_DEVICES after program start. Setting the available devices to be zero. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+  return torch._C._cuda_getDeviceCount() > 0
+  Device: cpu
+  Resuming: 52 configs already done
+  Total configs: 300
+  [cache] built windows (15, 60, 7, 15): train=33183 es=3031 eval=21100
+=== Sweep attempt 1 / 20  (الثلاثاء  7 أبريل 2026 +03 15:00:27) ===
+/home/aljouhara/.local/lib/python3.10/site-packages/torch/cuda/__init__.py:184: UserWarning: CUDA initialization: CUDA unknown error - this may be due to an incorrectly set up environment, e.g. changing env variable CUDA_VISIBLE_DEVICES after program start. Setting the available devices to be zero. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+  return torch._C._cuda_getDeviceCount() > 0
+  Device: cpu
+  Resuming: 52 configs already done
+  Total configs: 300
+  [cache] built windows (15, 60, 7, 15): train=33183 es=3031 eval=21100
+    [53/300] w15_h60_lr0.001_d0.2              nano=0.7402 ns=0.5436 sm=0.2021 comb=0.3728 ep12 (79499s)
+    [53/300] w15_h60_lr0.001_d0.2              nano=0.7402 ns=0.5436 sm=0.2021 comb=0.3728 ep12 (28171s)
+Terminated
+=== sweep.py exited with code 143 — restarting in 10s ===
+Terminated
+=== sweep.py exited with code 143 — restarting in 10s ===
+=== Sweep attempt 1 / 20  (الأربعاء  8 أبريل 2026 +03  0:40:38) ===
+/home/aljouhara/.local/lib/python3.10/site-packages/torch/cuda/__init__.py:184: UserWarning: CUDA initialization: CUDA unknown error - this may be due to an incorrectly set up environment, e.g. changing env variable CUDA_VISIBLE_DEVICES after program start. Setting the available devices to be zero. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+  return torch._C._cuda_getDeviceCount() > 0
+  Device: cpu
+=== Sweep attempt 2 / 20  (الأربعاء  8 أبريل 2026 +03  0:40:40) ===
+=== Sweep attempt 3 / 20  (الأربعاء  8 أبريل 2026 +03  0:40:40) ===
+/home/aljouhara/.local/lib/python3.10/site-packages/torch/cuda/__init__.py:184: UserWarning: CUDA initialization: CUDA unknown error - this may be due to an incorrectly set up environment, e.g. changing env variable CUDA_VISIBLE_DEVICES after program start. Setting the available devices to be zero. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+  return torch._C._cuda_getDeviceCount() > 0
+  Device: cpu
+/home/aljouhara/.local/lib/python3.10/site-packages/torch/cuda/__init__.py:184: UserWarning: CUDA initialization: CUDA unknown error - this may be due to an incorrectly set up environment, e.g. changing env variable CUDA_VISIBLE_DEVICES after program start. Setting the available devices to be zero. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+  return torch._C._cuda_getDeviceCount() > 0
+  Device: cpu
+  Resuming: 53 configs already done
+  Total configs: 300
+  Resuming: 53 configs already done
+  Total configs: 300
+  Resuming: 53 configs already done
+  Total configs: 300
+  [cache] built windows (15, 60, 7, 15): train=33183 es=3031 eval=21100
+  [cache] built windows (15, 60, 7, 15): train=33183 es=3031 eval=21100
+  [cache] built windows (15, 60, 7, 15): train=33183 es=3031 eval=21100
+Terminated
+=== sweep.py exited with code 143 — restarting in 10s ===
+Terminated
+=== sweep.py exited with code 143 — restarting in 10s ===
+Terminated
+=== sweep.py exited with code 143 — restarting in 10s ===
+=== Sweep attempt 4 / 20  (الأربعاء  8 أبريل 2026 +03  1:48:26) ===
+=== Sweep attempt 2 / 20  (الأربعاء  8 أبريل 2026 +03  1:48:26) ===
+=== Sweep attempt 3 / 20  (الأربعاء  8 أبريل 2026 +03  1:48:26) ===
+/home/aljouhara/.local/lib/python3.10/site-packages/torch/cuda/__init__.py:184: UserWarning: CUDA initialization: CUDA unknown error - this may be due to an incorrectly set up environment, e.g. changing env variable CUDA_VISIBLE_DEVICES after program start. Setting the available devices to be zero. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+  return torch._C._cuda_getDeviceCount() > 0
+  Device: cpu
+/home/aljouhara/.local/lib/python3.10/site-packages/torch/cuda/__init__.py:184: UserWarning: CUDA initialization: CUDA unknown error - this may be due to an incorrectly set up environment, e.g. changing env variable CUDA_VISIBLE_DEVICES after program start. Setting the available devices to be zero. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+  return torch._C._cuda_getDeviceCount() > 0
+  Device: cpu
+/home/aljouhara/.local/lib/python3.10/site-packages/torch/cuda/__init__.py:184: UserWarning: CUDA initialization: CUDA unknown error - this may be due to an incorrectly set up environment, e.g. changing env variable CUDA_VISIBLE_DEVICES after program start. Setting the available devices to be zero. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+  return torch._C._cuda_getDeviceCount() > 0
+  Device: cpu
