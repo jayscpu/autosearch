@@ -1,3 +1,3 @@
-config 54/300  w15_h60_lr0.001_d0.3
-epoch=0  val_loss=0.018025  best=0.018025  patience=0
-timestamp=2026-04-08 00:56:54
+config 55/300  w15_h60_lr0.001_d0.4
+epoch=0  val_loss=0.017775  best=0.017775  patience=0
+timestamp=2026-04-08 19:33:47

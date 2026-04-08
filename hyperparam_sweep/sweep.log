@@ -158,3 +158,61 @@ Terminated
 /home/aljouhara/.local/lib/python3.10/site-packages/torch/cuda/__init__.py:184: UserWarning: CUDA initialization: CUDA unknown error - this may be due to an incorrectly set up environment, e.g. changing env variable CUDA_VISIBLE_DEVICES after program start. Setting the available devices to be zero. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
   return torch._C._cuda_getDeviceCount() > 0
   Device: cpu
+  Resuming: 53 configs already done
+  Total configs: 300
+  Resuming: 53 configs already done
+  Total configs: 300
+  Resuming: 53 configs already done
+  Total configs: 300
+  [cache] built windows (15, 60, 7, 15): train=33183 es=3031 eval=21100
+  [cache] built windows (15, 60, 7, 15): train=33183 es=3031 eval=21100
+  [cache] built windows (15, 60, 7, 15): train=33183 es=3031 eval=21100
+=== Sweep attempt 1 / 20  (الأربعاء  8 أبريل 2026 +03 18:18:00) ===
+/home/aljouhara/.local/lib/python3.10/site-packages/torch/cuda/__init__.py:184: UserWarning: CUDA initialization: CUDA unknown error - this may be due to an incorrectly set up environment, e.g. changing env variable CUDA_VISIBLE_DEVICES after program start. Setting the available devices to be zero. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+  return torch._C._cuda_getDeviceCount() > 0
+  Device: cpu
+  Resuming: 53 configs already done
+  Total configs: 300
+  [cache] built windows (15, 60, 7, 15): train=33183 es=3031 eval=21100
+Terminated
+=== sweep.py exited with code 143 — restarting in 10s ===
+Terminated
+=== sweep.py exited with code 143 — restarting in 10s ===
+Terminated
+=== sweep.py exited with code 143 — restarting in 10s ===
+Terminated
+=== sweep.py exited with code 143 — restarting in 10s ===
+=== Sweep attempt 3 / 20  (الأربعاء  8 أبريل 2026 +03 18:36:20) ===
+=== Sweep attempt 2 / 20  (الأربعاء  8 أبريل 2026 +03 18:36:20) ===
+=== Sweep attempt 5 / 20  (الأربعاء  8 أبريل 2026 +03 18:36:20) ===
+=== Sweep attempt 4 / 20  (الأربعاء  8 أبريل 2026 +03 18:36:20) ===
+/home/aljouhara/.local/lib/python3.10/site-packages/torch/cuda/__init__.py:184: UserWarning: CUDA initialization: CUDA unknown error - this may be due to an incorrectly set up environment, e.g. changing env variable CUDA_VISIBLE_DEVICES after program start. Setting the available devices to be zero. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+  return torch._C._cuda_getDeviceCount() > 0
+  Device: cpu
+/home/aljouhara/.local/lib/python3.10/site-packages/torch/cuda/__init__.py:184: UserWarning: CUDA initialization: CUDA unknown error - this may be due to an incorrectly set up environment, e.g. changing env variable CUDA_VISIBLE_DEVICES after program start. Setting the available devices to be zero. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+  return torch._C._cuda_getDeviceCount() > 0
+  Device: cpu
+/home/aljouhara/.local/lib/python3.10/site-packages/torch/cuda/__init__.py:184: UserWarning: CUDA initialization: CUDA unknown error - this may be due to an incorrectly set up environment, e.g. changing env variable CUDA_VISIBLE_DEVICES after program start. Setting the available devices to be zero. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+  return torch._C._cuda_getDeviceCount() > 0
+  Device: cpu
+/home/aljouhara/.local/lib/python3.10/site-packages/torch/cuda/__init__.py:184: UserWarning: CUDA initialization: CUDA unknown error - this may be due to an incorrectly set up environment, e.g. changing env variable CUDA_VISIBLE_DEVICES after program start. Setting the available devices to be zero. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+  return torch._C._cuda_getDeviceCount() > 0
+  Device: cpu
+  Resuming: 53 configs already done
+  Total configs: 300
+  Resuming: 53 configs already done
+  Total configs: 300
+  Resuming: 53 configs already done
+  Total configs: 300
+  Resuming: 53 configs already done
+  Total configs: 300
+  [cache] built windows (15, 60, 7, 15): train=33183 es=3031 eval=21100
+  [cache] built windows (15, 60, 7, 15): train=33183 es=3031 eval=21100
+  [cache] built windows (15, 60, 7, 15): train=33183 es=3031 eval=21100
+  [cache] built windows (15, 60, 7, 15): train=33183 es=3031 eval=21100
+=== Sweep attempt 1 / 20  (الأربعاء  8 أبريل 2026 +03 18:40:49) ===
+  Device: cuda
+  Resuming: 53 configs already done
+  Total configs: 300
+  [cache] built windows (15, 60, 7, 15): train=33183 es=3031 eval=21100
+    [54/300] w15_h60_lr0.001_d0.3              nano=0.7223 ns=0.5658 sm=0.3118 comb=0.4388 ep8 (3105s)
