@@ -1,0 +1,5 @@
+fold	held_out	best_epoch	elapsed_s	heldout_r_miss_rate_nano	heldout_mse_miss_rate_nano	heldout_r_recovery_nano_to_small	heldout_mse_recovery_nano_to_small	heldout_r_recovery_small_to_medium	heldout_mse_recovery_small_to_medium	cross_r_miss_rate_nano	cross_mse_miss_rate_nano	cross_r_recovery_nano_to_small	cross_mse_recovery_nano_to_small	cross_r_recovery_small_to_medium	cross_mse_recovery_small_to_medium
+1	Bellevue_150th_Eastgate	14	103.7	0.104957	0.030842	-0.429654	0.023462	-0.132852	0.005643	0.233055	0.028278	-0.294614	0.013747	0.154447	0.004474
+2	Bellevue_150th_Newport	0	96.8	-0.561064	0.29297	0.213024	0.052129	-0.208626	0.010176	0.395864	0.030465	0.525597	0.006792	0.397838	0.004214
+3	Bellevue_Bellevue_NE8th	3	86.8	0.485117	0.040198	0.375763	0.00964	0.011592	0.005448	0.510829	0.028675	0.347502	0.007324	0.335633	0.004095
+4	Bellevue_116th_NE12th	9	125.8	0.657664	0.03442	0.49852	0.010226	0.270928	0.005363	0.501584	0.022064	0.423976	0.007056	0.311452	0.004411
