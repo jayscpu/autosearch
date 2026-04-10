@@ -1,0 +1,2 @@
+config_id	window	horizon	lr	dropout	r_nano	r_ns	r_sm	combined_score
+w15_h30_lr0.003_d0.4	15	30	0.003	0.4	0.698261	0.497101	0.225967	0.361534
