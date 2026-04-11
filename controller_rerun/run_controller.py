@@ -204,6 +204,36 @@ def optimize_cascading(train_df, threshold):
     return best_tau
 
 
+def cascading_threshold_2d(df, tau_ns, tau_sm):
+    selections = []
+    for _, row in df.iterrows():
+        model = 0
+        if row["pred_recovery_ns"] > tau_ns:
+            model = 1
+        if row["pred_recovery_sm"] > tau_sm:
+            model = 2
+        selections.append(model)
+    return selections
+
+
+def optimize_cascading_2d(train_df, threshold):
+    taus = np.linspace(0.01, 0.30, 30)
+    best_adequate, best_savings = -1.0, -999.0
+    best_tau_ns, best_tau_sm = 0.10, 0.10
+    for tau_ns in taus:
+        for tau_sm in taus:
+            sels = cascading_threshold_2d(train_df, tau_ns, tau_sm)
+            metrics = evaluate(train_df, sels, threshold)
+            adq = metrics["adequate_rate"]
+            sav = metrics["energy_savings_pct"]
+            if adq > best_adequate or (adq == best_adequate and sav > best_savings):
+                best_adequate = adq
+                best_savings = sav
+                best_tau_ns = tau_ns
+                best_tau_sm = tau_sm
+    return best_tau_ns, best_tau_sm
+
+
 def bayes_mpc(df, H, lambda_u, w_s, threshold):
     """MPC controller: minimize energy + under-provision penalty + switch cost."""
     # Precompute all 3^H sequences
@@ -351,6 +381,20 @@ def main():
               f"adequate={metrics['adequate_rate']:5.1f}%  "
               f"correct={metrics['correct_rate']:5.1f}%  tau={best_tau:.3f}", flush=True)
 
+        # CascadingThreshold2D
+        print(f"    Optimizing CascadingThreshold2D...", flush=True)
+        best_tau_ns, best_tau_sm = optimize_cascading_2d(train_df, threshold)
+        sels = cascading_threshold_2d(test_df, best_tau_ns, best_tau_sm)
+        metrics = evaluate(test_df, sels, threshold)
+        metrics["threshold"] = threshold
+        metrics["controller"] = (f"CascadingThreshold2D("
+                                 f"ns={best_tau_ns:.3f},sm={best_tau_sm:.3f})")
+        all_results.append(metrics)
+        print(f"    {'CascadingThreshold2D':25s}: savings={metrics['energy_savings_pct']:5.1f}%  "
+              f"adequate={metrics['adequate_rate']:5.1f}%  "
+              f"correct={metrics['correct_rate']:5.1f}%  "
+              f"tau_ns={best_tau_ns:.3f} tau_sm={best_tau_sm:.3f}", flush=True)
+
         # BayesMPC
         print(f"    Optimizing BayesMPC...", flush=True)
         best_config = optimize_bayes_mpc(train_df, threshold)
@@ -401,9 +445,15 @@ def main():
 
         # CascadingThreshold
         cascade_r = next(r for r in t_results
-                         if r["controller"].startswith("CascadingThreshold"))
+                         if r["controller"].startswith("CascadingThreshold("))
         ax.scatter(cascade_r["energy_savings_pct"], cascade_r["adequate_rate"],
                   c="blue", s=100, marker="s", zorder=5, label="CascadingThreshold")
+
+        # CascadingThreshold2D
+        cascade2d_r = next(r for r in t_results
+                           if r["controller"].startswith("CascadingThreshold2D"))
+        ax.scatter(cascade2d_r["energy_savings_pct"], cascade2d_r["adequate_rate"],
+                  c="cyan", s=100, marker="p", zorder=5, label="CascadingThreshold2D")
 
         # BayesMPC
         bayes_r = next(r for r in t_results
@@ -441,8 +491,12 @@ def main():
               f"{oracle_r['adequate_rate']:5.1f}% adequate")
         print(f"    BayesMPC:           {bayes_r['energy_savings_pct']:5.1f}% savings, "
               f"{bayes_r['adequate_rate']:5.1f}% adequate")
+        cascade2d_r = next(r for r in t_results
+                           if r["controller"].startswith("CascadingThreshold2D"))
         print(f"    CascadingThreshold: {cascade_r['energy_savings_pct']:5.1f}% savings, "
               f"{cascade_r['adequate_rate']:5.1f}% adequate")
+        print(f"    CascThreshold2D:    {cascade2d_r['energy_savings_pct']:5.1f}% savings, "
+              f"{cascade2d_r['adequate_rate']:5.1f}% adequate")
 
     elapsed = time.time() - t_start
     print(f"\n  Total time: {elapsed:.1f}s", flush=True)
