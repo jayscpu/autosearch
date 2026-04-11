@@ -10,3 +10,4 @@ second_autosearch/src/checkpoints/
 *.pdf
 __pycache__/
 .claude/
+new_features/pod_new_30_features.csv
