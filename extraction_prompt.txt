@@ -1,0 +1,439 @@
+FEATURE EXTRACTION 
+==========================================
+DATA PATH: Videos are at /workspace/autosearch/pod/data/{intersection_name}/*.mp4
+REPO PATH: /workspace/autosearch_repo/
+Detection CSVs: /workspace/autosearch_repo/second_autosearch/data/pod_detections_*.csv
+Output: /workspace/autosearch_repo/new_features/
+
+==========================================
+
+Read /home/claude/autosearch/second_autosearch/src/pod_pipeline.py carefully before 
+writing any code. Pay special attention to:
+  - extract_density_features() lines 283-330 (MOG2 params, fg mask processing, blob filtering)
+  - extract_all_features() lines 578-605 (how gray/prev_gray are handled)
+  - process_intersection() lines 607-740 (video order, frame_id assignment, prev_gray reset)
+
+Create /home/claude/autosearch/new_features/extract_30.py
+
+═══════════════════════════════════════════════════════════
+TASK: Extract 30 new features from all 645,390 frames
+═══════════════════════════════════════════════════════════
+
+The existing pod_features_all.csv has 65 features. We are extracting 30 NEW 
+features into a SEPARATE CSV, then merging. We do NOT recompute the 65.
+
+═══════════════════════════════════════════════════════════
+DATA LAYOUT
+═══════════════════════════════════════════════════════════
+
+Videos are downloaded via pod_download.sh to:
+  {DATA_DIR}/{intersection_name}/*.mp4
+
+Frames are extracted by ffmpeg at 2fps to:
+  {FRAMES_DIR}/{intersection_name}/{video_stem}/frame_000001.jpg, frame_000002.jpg, ...
+
+If frames already exist (from a previous pipeline run), skip extraction.
+If not, extract them: ffmpeg -y -i video.mp4 -vf "fps=2,scale=1280:720" -q:v 2 frame_%06d.jpg
+
+The detection CSVs in the repo provide the GROUND TRUTH frame_id mapping:
+  second_autosearch/data/pod_detections_{intersection}.csv
+  Columns: sequence, video, frame_id, ...
+  
+frame_id is a GLOBAL COUNTER within each intersection (1, 2, 3, ..., N).
+Videos are processed in SORTED ALPHABETICAL ORDER within each intersection.
+frame_id continues incrementing across videos without reset.
+
+═══════════════════════════════════════════════════════════
+FRAME_ID ALIGNMENT (CRITICAL — GET THIS RIGHT)
+═══════════════════════════════════════════════════════════
+
+The merge with pod_features_all.csv happens on (sequence, video, frame_id).
+If frame_ids don't match, the merge produces NaN and everything breaks.
+
+SAFE APPROACH:
+1. Read the detection CSV for each intersection
+2. Group by video, in order of frame_id
+3. For each (intersection, video) group, compute expected_frame_count
+4. When processing that video, verify ffmpeg produces exactly that many frames
+5. If frame count mismatches: print ERROR with details but continue (don't crash)
+6. Each worker outputs rows with columns: sequence, video, frame_index (0-based within video)
+7. After all extraction, the main process builds frame_id from the detection CSV mapping:
+   - For each (sequence, video), get the frame_ids from the detection CSV in order
+   - Assign frame_id[i] = detection_csv_frame_ids[frame_index_i]
+8. Final output has: sequence, video, frame_id, [30 features]
+
+This guarantees perfect alignment regardless of ffmpeg version differences.
+
+═══════════════════════════════════════════════════════════
+PREPROCESSING — MUST MATCH ORIGINAL EXACTLY
+═══════════════════════════════════════════════════════════
+
+For each frame:
+  bgr = cv2.imread(frame_path)              # BGR, 1280x720
+  gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+  gray_f = gray.astype(np.float64)
+
+MOG2 (one instance per video, reset at start of each video):
+  mog = cv2.createBackgroundSubtractorMOG2(history=200, varThreshold=50, detectShadows=True)
+  fg_mask = mog.apply(bgr)                  # apply to BGR, not gray
+  fg_binary = (fg_mask == 255).astype(np.uint8)
+
+Morphological cleanup (MUST match original):
+  kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+  fg_clean = cv2.morphologyEx(fg_binary, cv2.MORPH_CLOSE, kernel)
+  fg_clean = cv2.morphologyEx(fg_clean, cv2.MORPH_OPEN, kernel)
+
+Connected components (for blob features):
+  n_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(fg_clean, connectivity=8)
+  # Skip label 0 (background)
+  # Filter blobs: area >= 200 AND area < 0.3 * (1280*720)
+  # This matches the original pipeline's blob filtering
+
+Canny edges:
+  edges = cv2.Canny(gray, 50, 150)
+
+Temporal diff:
+  if prev_gray is not None:
+      temporal_diff = cv2.absdiff(gray, prev_gray).astype(np.float32)
+  else:
+      temporal_diff = np.zeros_like(gray, dtype=np.float32)
+
+prev_gray reset: set to None at the START of each video (line 690 of original).
+
+═══════════════════════════════════════════════════════════
+THE 30 FEATURES
+═══════════════════════════════════════════════════════════
+
+All computed from the intermediates above (fg_clean, stats, centroids, edges, 
+temporal_diff, gray, bgr). No additional expensive operations needed except 
+Gabor filters for feature_congestion/subband_entropy.
+
+TOTAL_PX = 1280 * 720
+
+--- GROUP A: Blob Geometry (from fg_clean + connectedComponentsWithStats) ---
+
+After connectedComponentsWithStats, filter blobs: skip label 0, keep blobs 
+where area >= 200 AND area < 0.3 * TOTAL_PX. Call these "valid blobs".
+Use valid_areas = stats[valid_mask, cv2.CC_STAT_AREA].
+Use valid_centroids = centroids[valid_mask] (note: centroids includes label 0, 
+so index as centroids[1:][valid_mask]).
+
+If 0 valid blobs, set ALL Group A features to 0.0.
+
+1.  blob_small_fraction
+    = count(valid_areas < 500) / len(valid_areas)
+
+2.  blob_large_fraction
+    = count(valid_areas > 5000) / len(valid_areas)
+
+3.  blob_size_cv
+    = np.std(valid_areas) / (np.mean(valid_areas) + 1e-8)
+
+4.  blob_compactness_mean
+    For each valid blob i:
+      Create binary mask: blob_mask = (labels == label_i).astype(np.uint8)
+      contours_i, _ = cv2.findContours(blob_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+      if contours_i: perimeter = cv2.arcLength(contours_i[0], closed=True)
+      else: perimeter = 0
+      compactness_i = 4 * np.pi * valid_areas[i] / (perimeter**2 + 1e-8)
+    blob_compactness_mean = mean of all compactness_i
+    
+    NOTE: This is expensive if many blobs. If > 200 valid blobs, subsample 
+    to 200 random blobs for compactness/aspect ratio computation.
+
+5.  blob_compactness_std
+    = std of compactness_i values
+
+6.  blob_aspect_ratio_mean
+    For each valid blob: ar = stats[label, CC_STAT_WIDTH] / (stats[label, CC_STAT_HEIGHT] + 1e-8)
+    = mean of all ar values
+
+7.  blob_aspect_ratio_std
+    = std of ar values
+
+8.  blob_nn_dist_mean
+    If <= 1 valid blob: 0.0
+    Else: for each valid centroid, compute euclidean distance to nearest other 
+    valid centroid. Use scipy.spatial.distance.cdist for efficiency.
+    = mean of nearest-neighbor distances
+
+9.  blob_nn_dist_std
+    = std of nearest-neighbor distances. If <= 1: 0.0
+
+10. blob_overlap_count
+    If <= 1 valid blob: 0
+    For each pair of valid blobs (i, j) where i < j:
+      Overlap if: x_i < x_j + w_j AND x_j < x_i + w_i AND y_i < y_j + h_j AND y_j < y_i + h_i
+      (using CC_STAT_LEFT, CC_STAT_TOP, CC_STAT_WIDTH, CC_STAT_HEIGHT)
+    = count of overlapping pairs
+    NOTE: O(n^2) but n is small after filtering (typically < 50)
+
+--- GROUP B: Foreground Spatial Distribution (from fg_clean) ---
+
+11. fg_spatial_entropy
+    Divide frame (720 rows, 1280 cols) into 4x4 grid (4 rows × 4 cols of cells).
+    Cell size: 180 rows × 320 cols.
+    For each cell: fraction = sum(fg_clean in cell) / (cell_h * cell_w)
+    Normalize fractions to sum to 1: p = fractions / (fractions.sum() + 1e-10)
+    entropy = -sum(p * log2(p + 1e-10))
+    If no foreground at all: 0.0
+
+12. fg_center_of_mass_y
+    ys, xs = np.where(fg_clean > 0)
+    If len(ys) == 0: 0.5
+    Else: float(ys.mean() / 720)
+
+13. fg_center_of_mass_x
+    If len(xs) == 0: 0.5
+    Else: float(xs.mean() / 1280)
+
+14. fg_quadrant_imbalance
+    4 quadrants: top-left, top-right, bottom-left, bottom-right
+    For each: fraction of pixels that are foreground
+    = max(fractions) - min(fractions)
+
+15. fg_perimeter_ratio
+    dilated = cv2.dilate(fg_clean, np.ones((3,3), np.uint8))
+    boundary = cv2.bitwise_xor(dilated, fg_clean)
+    = float(boundary.sum() / TOTAL_PX)
+
+--- GROUP C: Motion Structure (from temporal_diff) ---
+
+If first frame of video (prev_gray is None), ALL Group C = 0.0
+
+16. motion_spatial_entropy
+    Same 4x4 grid as fg_spatial_entropy, but on temporal_diff.
+    Per cell: sum of temporal_diff values in that cell.
+    Normalize to sum=1, compute entropy.
+    If total motion sum < 1.0: 0.0
+
+17. motion_concentration
+    Flatten the 16 cell sums. Sort descending. Find smallest k such that 
+    sum of top-k cells >= 0.8 * total_sum. Result = k / 16.
+    If total motion < 1.0: 1.0
+
+18. motion_vertical_bias
+    = (sum of temporal_diff in top 360 rows - sum in bottom 360 rows) / (total_sum + 1e-8)
+
+19. temporal_diff_skewness
+    from scipy.stats import skew
+    flat = temporal_diff.ravel()
+    If np.std(flat) < 1e-8: 0.0
+    Else: float(skew(flat))
+
+20. temporal_diff_kurtosis
+    from scipy.stats import kurtosis
+    If np.std(flat) < 1e-8: 0.0
+    Else: float(kurtosis(flat, fisher=True))
+
+--- GROUP D: Contour Geometry (from Canny edges) ---
+
+contours, hierarchy = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+If 0 contours, ALL Group D = 0.0. hierarchy shape is (1, N, 4).
+
+21. contour_count
+    = len(contours)
+
+22. contour_small_fraction
+    For each contour: peri = cv2.arcLength(contour, closed=False)
+    = count(peri < 50) / len(contours)
+
+23. contour_large_fraction
+    = count(peri > 200) / len(contours)
+
+24. contour_closed_ratio
+    A contour is "closed" if the distance between its first and last point < 5 pixels:
+    closed = sum(1 for c in contours if len(c) >= 2 and 
+                 np.linalg.norm(c[0][0].astype(float) - c[-1][0].astype(float)) < 5)
+    = closed / len(contours)
+
+25. contour_hierarchy_depth
+    hierarchy array: hierarchy[0][i] = [next, prev, first_child, parent]
+    For each contour i, compute depth by following parent links:
+      depth = 0; idx = i
+      while hierarchy[0][idx][3] >= 0: depth += 1; idx = hierarchy[0][idx][3]
+    = max depth across all contours
+
+--- GROUP E: Scale-Specific Frequency (from FFT of gray) ---
+
+gray_float = gray.astype(np.float64)
+f = np.fft.fft2(gray_float)
+fshift = np.fft.fftshift(f)
+magnitude = np.abs(fshift)
+
+h, w = gray.shape  # 720, 1280
+cy, cx = h // 2, w // 2
+Y, X = np.ogrid[:h, :w]
+radius = np.sqrt((X - cx)**2 + (Y - cy)**2)
+max_radius = np.sqrt(cx**2 + cy**2)
+
+26. spectral_centroid
+    = float(np.sum(radius * magnitude) / (np.sum(magnitude) + 1e-8) / max_radius)
+
+27. spectral_rolloff_85
+    Sort all (radius, magnitude) pairs by radius.
+    Compute cumulative sum of magnitude.
+    Find radius where cumsum >= 0.85 * total_magnitude.
+    = float(that_radius / max_radius)
+
+    Efficient approach: 
+    radii_flat = radius.ravel()
+    mag_flat = magnitude.ravel()
+    order = np.argsort(radii_flat)
+    cumsum = np.cumsum(mag_flat[order])
+    total = cumsum[-1]
+    idx_85 = np.searchsorted(cumsum, 0.85 * total)
+    spectral_rolloff_85 = float(radii_flat[order[min(idx_85, len(order)-1)]] / max_radius)
+
+28. band_energy_fine_over_coarse
+    band_coarse = magnitude[radius <= 0.25 * max_radius].sum()
+    band_fine = magnitude[radius >= 0.75 * max_radius].sum()
+    = float(band_fine / (band_coarse + 1e-8))
+
+--- GROUP F: Visual Clutter (Rosenholtz-inspired, simplified) ---
+
+29. subband_entropy
+    Apply 8 oriented Gabor filters: 4 orientations (0, 45, 90, 135 degrees) × 2 scales.
+    Scale 1: cv2.getGaborKernel((21,21), sigma=3, theta=angle, lambd=10, gamma=0.5)
+    Scale 2: cv2.getGaborKernel((11,11), sigma=1.5, theta=angle, lambd=5, gamma=0.5)
+    Angles: [0, np.pi/4, np.pi/2, 3*np.pi/4]
+    
+    For each filter: response = cv2.filter2D(gray_float, cv2.CV_64F, kernel)
+    energy = response ** 2
+    Smooth each energy map: cv2.blur(energy, (16, 16))
+    
+    Stack 8 smoothed energy maps: (H, W, 8)
+    At each pixel, normalize across 8 channels to sum=1, compute entropy.
+    subband_entropy = mean entropy across all pixels.
+    
+    Precompute all 8 Gabor kernels ONCE outside the frame loop.
+
+30. feature_congestion
+    Compute 3 local variance maps using 16x16 box filter:
+    
+    lum = gray_float
+    lum_sq = cv2.blur(lum**2, (16,16))
+    lum_mean = cv2.blur(lum, (16,16))
+    lum_var = np.maximum(lum_sq - lum_mean**2, 0)
+    
+    grad = np.sqrt(cv2.Sobel(lum, cv2.CV_64F, 1, 0, ksize=3)**2 + 
+                   cv2.Sobel(lum, cv2.CV_64F, 0, 1, ksize=3)**2)
+    grad_sq = cv2.blur(grad**2, (16,16))
+    grad_mean = cv2.blur(grad, (16,16))
+    grad_var = np.maximum(grad_sq - grad_mean**2, 0)
+    
+    hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+    sat = hsv[:,:,1].astype(np.float64)
+    sat_sq = cv2.blur(sat**2, (16,16))
+    sat_mean = cv2.blur(sat, (16,16))
+    sat_var = np.maximum(sat_sq - sat_mean**2, 0)
+    
+    congestion = np.cbrt(lum_var * grad_var * sat_var)  # cube root for scale
+    feature_congestion = float(congestion.mean())
+
+═══════════════════════════════════════════════════════════
+PARALLELIZATION
+═══════════════════════════════════════════════════════════
+
+MOG2 is per-video (verified in pod_pipeline.py line 691: 
+seq_name = f"{intersection_name}_{vname}"). prev_gray resets per video.
+Videos are fully independent. Parallelize across ALL 104 videos.
+
+Architecture:
+  1. Main process reads all 5 detection CSVs → builds reference dict:
+     ref[(intersection, video)] = sorted list of frame_ids
+  2. Main process discovers all videos across all intersections
+  3. Pool(min(os.cpu_count(), 16)) maps process_one_video across all videos
+  4. Each worker returns list of dicts: {sequence, video, frame_index, feat1...feat30}
+  5. Main process collects all results, assigns frame_id from reference, saves CSV
+
+Worker function process_one_video(args):
+  args = (intersection_name, video_path, frames_dir, expected_n_frames)
+  
+  1. Extract frames if not already on disk:
+     ffmpeg -y -i video.mp4 -vf "fps=2,scale=1280:720" -q:v 2 frame_%06d.jpg
+  2. frame_files = sorted(glob frame_*.jpg)
+  3. Verify len(frame_files) == expected_n_frames
+     If mismatch: print WARNING, proceed with min(actual, expected)
+  4. Init MOG2 fresh
+  5. prev_gray = None
+  6. Precompute 8 Gabor kernels (same for every frame)
+  7. For each frame in order:
+     - Load BGR, compute gray
+     - Apply MOG2 → fg_clean (with morphological cleanup + blob filtering)
+     - Compute Canny edges
+     - Compute temporal_diff vs prev_gray
+     - Compute FFT (for spectral features)
+     - Extract all 30 features
+     - prev_gray = gray
+  8. Return list of feature dicts
+
+═══════════════════════════════════════════════════════════
+OUTPUT STRUCTURE
+═══════════════════════════════════════════════════════════
+
+Save per-intersection CSVs for crash protection:
+  new_features/features_30_Bellevue_150th_Eastgate.csv
+  new_features/features_30_Bellevue_150th_Newport.csv
+  new_features/features_30_Bellevue_150th_SE38th.csv
+  new_features/features_30_Bellevue_Bellevue_NE8th.csv
+  new_features/features_30_Bellevue_116th_NE12th.csv
+
+Columns: sequence, video, frame_id, [30 feature columns]
+
+After ALL extraction completes:
+  Concatenate 5 intersection CSVs → new_features/pod_new_30_features.csv
+  Merge: pod_features_all.csv + pod_new_30_features.csv → pod_features_all_95.csv
+  Verify: row count matches, no NaN in new columns
+
+═══════════════════════════════════════════════════════════
+CRASH PROTECTION
+═══════════════════════════════════════════════════════════
+
+1. SKIP COMPLETED INTERSECTIONS: If features_30_{intersection}.csv exists AND 
+   row count matches detection CSV, skip entirely.
+
+2. WITHIN-INTERSECTION PROGRESS: Process all videos for an intersection via Pool,
+   collect results, save the full intersection CSV at once. If crash mid-intersection,
+   that intersection re-runs from scratch (videos are fast individually).
+
+3. PROGRESS PRINTING: After each video completes (via callback), print:
+   "[{completed}/{total}] {intersection}/{video} done ({n_frames} frames, {elapsed:.1f}s)"
+
+4. GIT AUTOCOMMIT: Background thread every 5 minutes:
+   git add new_features/*.csv
+   git commit -m "extraction checkpoint {timestamp}"
+   git push
+   Use subprocess.run with check=False. Print on success.
+
+5. TIMING: Print ETA based on average time per frame × remaining frames.
+
+═══════════════════════════════════════════════════════════
+PERFORMANCE NOTES  
+═══════════════════════════════════════════════════════════
+
+- Gabor kernels: precompute ONCE, pass to worker function
+- blob_compactness: if > 200 valid blobs in a frame, subsample to 200
+- spectral_rolloff: use np.searchsorted, not a loop
+- contour_hierarchy_depth: use vectorized parent lookup, not recursive
+- scipy.stats.skew/kurtosis: import once, these are fast on flat arrays
+- cv2.blur is faster than cv2.GaussianBlur for box filtering
+- Expected speed: ~50-80ms per frame (30 features)
+- Expected total: 645,390 frames / 16 workers ≈ 40,000 frames per worker
+- At 70ms/frame: ~47 minutes per worker → ~1 hour total with overhead
+  (much faster than original 24 hours because no YOLO inference)
+
+═══════════════════════════════════════════════════════════
+POST-EXTRACTION VERIFICATION
+═══════════════════════════════════════════════════════════
+
+After merge, print:
+1. Row count of merged CSV (must equal pod_features_all.csv)
+2. NaN count per new feature column (must be 0)
+3. Mean, std, min, max for each new feature
+4. Correlation of new features with existing foreground_blob_count 
+   (sanity check: blob_small_fraction should correlate with blob_count)
+5. Correlation of new features with each other (flag any r > 0.95 pairs)
+
+Git commit the script, per-intersection CSVs, and merged CSV.
+DO NOT run any training. Extraction and merge only.
