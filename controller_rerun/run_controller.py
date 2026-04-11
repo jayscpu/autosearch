@@ -314,6 +314,64 @@ def optimize_bayes_mpc(train_df, threshold):
     return best_config
 
 
+def recovery_mpc(df, lambda_u, lambda_o, tau_ns, tau_sm):
+    """RecoveryMPC: uses recovery predictions directly, no miss rate conversion."""
+    e_norm = {0: E_NANO / E_MEDIUM, 1: E_SMALL / E_MEDIUM, 2: 1.0}
+
+    selections = []
+    rows = df.to_dict("records")
+
+    for row in rows:
+        rec_ns = row["pred_recovery_ns"]
+        rec_sm = row["pred_recovery_sm"]
+
+        # cost(nano)
+        c0 = e_norm[0] + lambda_u * rec_ns
+
+        # cost(small)
+        c1 = (e_norm[1]
+              + lambda_u * max(0, rec_sm - tau_sm)
+              + lambda_o * max(0, tau_ns - rec_ns))
+
+        # cost(medium)
+        c2 = (e_norm[2]
+              + lambda_o * max(0, tau_ns - rec_ns)
+              + lambda_o * max(0, tau_sm - rec_sm))
+
+        costs = [c0, c1, c2]
+        selections.append(int(np.argmin(costs)))
+
+    return selections
+
+
+def optimize_recovery_mpc(train_df, threshold):
+    lu_vals = [1.0, 3.0, 5.0, 10.0]
+    lo_vals = [0.5, 1.0, 2.0, 5.0]
+    tns_vals = [0.05, 0.10, 0.15, 0.20]
+    tsm_vals = [0.02, 0.05, 0.08, 0.10]
+
+    n_configs = len(lu_vals) * len(lo_vals) * len(tns_vals) * len(tsm_vals)
+    print(f"    Grid search: {n_configs} configs at threshold={threshold}", flush=True)
+
+    best_score = -1.0
+    best_config = {"lambda_u": 5.0, "lambda_o": 1.0, "tau_ns": 0.10, "tau_sm": 0.05}
+
+    for lu in lu_vals:
+        for lo in lo_vals:
+            for tns in tns_vals:
+                for tsm in tsm_vals:
+                    sels = recovery_mpc(train_df, lu, lo, tns, tsm)
+                    metrics = evaluate(train_df, sels, threshold)
+                    score = (metrics["adequate_rate"] / 100
+                             + 0.3 * metrics["energy_savings_pct"] / 100)
+                    if score > best_score:
+                        best_score = score
+                        best_config = {"lambda_u": lu, "lambda_o": lo,
+                                       "tau_ns": tns, "tau_sm": tsm}
+
+    return best_config
+
+
 def rich_mpc(df, lambda_u, lambda_o, threshold):
     """RichMPC: Bayes Risk with both lambda_under and lambda_over."""
     e_norm = {m: ENERGY[m] / E_MEDIUM for m in range(3)}
@@ -478,6 +536,23 @@ def main():
               f"nano={metrics['pct_nano']:.0f}% sm={metrics['pct_small']:.0f}% "
               f"med={metrics['pct_medium']:.0f}%  config={best_rich}", flush=True)
 
+        # RecoveryMPC
+        print(f"    Optimizing RecoveryMPC...", flush=True)
+        best_rec = optimize_recovery_mpc(train_df, threshold)
+        sels = recovery_mpc(test_df, **best_rec)
+        metrics = evaluate(test_df, sels, threshold)
+        metrics["threshold"] = threshold
+        metrics["controller"] = (f"RecoveryMPC(lu={best_rec['lambda_u']},"
+                                 f"lo={best_rec['lambda_o']},"
+                                 f"tns={best_rec['tau_ns']},"
+                                 f"tsm={best_rec['tau_sm']})")
+        all_results.append(metrics)
+        print(f"    {'RecoveryMPC':25s}: savings={metrics['energy_savings_pct']:5.1f}%  "
+              f"adequate={metrics['adequate_rate']:5.1f}%  "
+              f"correct={metrics['correct_rate']:5.1f}%  "
+              f"nano={metrics['pct_nano']:.0f}% sm={metrics['pct_small']:.0f}% "
+              f"med={metrics['pct_medium']:.0f}%  config={best_rec}", flush=True)
+
     # Save TSV
     cols = ["threshold", "n_solvable", "n_total", "controller",
             "energy_savings_pct", "adequate_rate", "correct_rate",
@@ -535,6 +610,12 @@ def main():
         ax.scatter(rich_r["energy_savings_pct"], rich_r["adequate_rate"],
                   c="magenta", s=120, marker="v", zorder=6, label="RichMPC")
 
+        # RecoveryMPC
+        rec_r = next(r for r in t_results
+                     if r["controller"].startswith("RecoveryMPC"))
+        ax.scatter(rec_r["energy_savings_pct"], rec_r["adequate_rate"],
+                  c="darkorange", s=120, marker="h", zorder=6, label="RecoveryMPC")
+
         n_solv = next(r for r in t_results)["n_solvable"]
         n_tot = next(r for r in t_results)["n_total"]
         ax.set_title(f"T={threshold} ({n_solv}/{n_tot} solvable)", fontsize=11)
@@ -573,16 +654,19 @@ def main():
               f"{bayes_r['adequate_rate']:5.1f}% adequate")
         print(f"    CascadingThreshold: {cascade_r['energy_savings_pct']:5.1f}% savings, "
               f"{cascade_r['adequate_rate']:5.1f}% adequate")
+        rec_r = next(r for r in t_results
+                     if r["controller"].startswith("RecoveryMPC"))
         print(f"    CascThreshold2D:    {cascade2d_r['energy_savings_pct']:5.1f}% savings, "
               f"{cascade2d_r['adequate_rate']:5.1f}% adequate")
+        print(f"    RecoveryMPC:        {rec_r['energy_savings_pct']:5.1f}% savings, "
+              f"{rec_r['adequate_rate']:5.1f}% adequate")
 
     # ── Comparison table ─────────────────────────────────────────
     print(f"\n{'='*70}")
-    print(f"  COMPARISON: BayesMPC vs RichMPC vs Oracle")
+    print(f"  COMPARISON: BayesMPC vs RichMPC vs RecoveryMPC vs Oracle")
     print(f"{'='*70}")
-    print(f"  {'Threshold':>9s} | {'BayesMPC savings/adq':>22s} | "
-          f"{'RichMPC savings/adq':>22s} | {'Oracle savings':>14s} | "
-          f"{'RichMPC nano%/sm%/med%':>22s}")
+    print(f"  {'Thresh':>6s} | {'BayesMPC':>16s} | {'RichMPC':>16s} | "
+          f"{'RecoveryMPC':>16s} | {'Oracle':>8s} | {'RecMPC model mix':>20s}")
     print(f"  {'-'*95}")
     for threshold in THRESHOLDS:
         t_results = [r for r in all_results if r["threshold"] == threshold]
@@ -591,11 +675,14 @@ def main():
                        if r["controller"].startswith("BayesMPC"))
         rich_r = next(r for r in t_results
                       if r["controller"].startswith("RichMPC"))
-        print(f"  {threshold:>9.2f} | "
-              f"{bayes_r['energy_savings_pct']:5.1f}% / {bayes_r['adequate_rate']:5.1f}%    | "
-              f"{rich_r['energy_savings_pct']:5.1f}% / {rich_r['adequate_rate']:5.1f}%    | "
-              f"{oracle_r['energy_savings_pct']:5.1f}%         | "
-              f"{rich_r['pct_nano']:4.0f}% / {rich_r['pct_small']:4.0f}% / {rich_r['pct_medium']:4.0f}%")
+        rec_r = next(r for r in t_results
+                     if r["controller"].startswith("RecoveryMPC"))
+        print(f"  {threshold:>6.2f} | "
+              f"{bayes_r['energy_savings_pct']:5.1f}%/{bayes_r['adequate_rate']:5.1f}% | "
+              f"{rich_r['energy_savings_pct']:5.1f}%/{rich_r['adequate_rate']:5.1f}% | "
+              f"{rec_r['energy_savings_pct']:5.1f}%/{rec_r['adequate_rate']:5.1f}% | "
+              f"{oracle_r['energy_savings_pct']:5.1f}%  | "
+              f"{rec_r['pct_nano']:4.0f}/{rec_r['pct_small']:4.0f}/{rec_r['pct_medium']:4.0f}%")
 
     elapsed = time.time() - t_start
     print(f"\n  Total time: {elapsed:.1f}s", flush=True)
