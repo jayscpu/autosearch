@@ -372,6 +372,32 @@ def optimize_recovery_mpc(train_df, threshold):
     return best_config
 
 
+def optimize_recovery_mpc_balanced(train_df, threshold):
+    lam_vals = [0.5, 1.0, 2.0, 5.0]
+    tns_vals = [0.05, 0.10, 0.15, 0.20]
+    tsm_vals = [0.02, 0.05, 0.08, 0.10]
+
+    n_configs = len(lam_vals) * len(tns_vals) * len(tsm_vals)
+    print(f"    Grid search: {n_configs} configs at threshold={threshold}", flush=True)
+
+    best_score = -1.0
+    best_config = {"lambda_u": 1.0, "lambda_o": 1.0, "tau_ns": 0.10, "tau_sm": 0.05}
+
+    for lam in lam_vals:
+        for tns in tns_vals:
+            for tsm in tsm_vals:
+                sels = recovery_mpc(train_df, lam, lam, tns, tsm)
+                metrics = evaluate(train_df, sels, threshold)
+                score = (metrics["adequate_rate"] / 100
+                         + 0.3 * metrics["energy_savings_pct"] / 100)
+                if score > best_score:
+                    best_score = score
+                    best_config = {"lambda_u": lam, "lambda_o": lam,
+                                   "tau_ns": tns, "tau_sm": tsm}
+
+    return best_config
+
+
 def rich_mpc(df, lambda_u, lambda_o, threshold):
     """RichMPC: Bayes Risk with both lambda_under and lambda_over."""
     e_norm = {m: ENERGY[m] / E_MEDIUM for m in range(3)}
@@ -553,6 +579,22 @@ def main():
               f"nano={metrics['pct_nano']:.0f}% sm={metrics['pct_small']:.0f}% "
               f"med={metrics['pct_medium']:.0f}%  config={best_rec}", flush=True)
 
+        # RecoveryMPC_balanced
+        print(f"    Optimizing RecoveryMPC_balanced...", flush=True)
+        best_bal = optimize_recovery_mpc_balanced(train_df, threshold)
+        sels = recovery_mpc(test_df, **best_bal)
+        metrics = evaluate(test_df, sels, threshold)
+        metrics["threshold"] = threshold
+        metrics["controller"] = (f"RecoveryMPC_balanced(l={best_bal['lambda_u']},"
+                                 f"tns={best_bal['tau_ns']},"
+                                 f"tsm={best_bal['tau_sm']})")
+        all_results.append(metrics)
+        print(f"    {'RecoveryMPC_balanced':25s}: savings={metrics['energy_savings_pct']:5.1f}%  "
+              f"adequate={metrics['adequate_rate']:5.1f}%  "
+              f"correct={metrics['correct_rate']:5.1f}%  "
+              f"nano={metrics['pct_nano']:.0f}% sm={metrics['pct_small']:.0f}% "
+              f"med={metrics['pct_medium']:.0f}%  config={best_bal}", flush=True)
+
     # Save TSV
     cols = ["threshold", "n_solvable", "n_total", "controller",
             "energy_savings_pct", "adequate_rate", "correct_rate",
@@ -612,9 +654,15 @@ def main():
 
         # RecoveryMPC
         rec_r = next(r for r in t_results
-                     if r["controller"].startswith("RecoveryMPC"))
+                     if r["controller"].startswith("RecoveryMPC("))
         ax.scatter(rec_r["energy_savings_pct"], rec_r["adequate_rate"],
                   c="darkorange", s=120, marker="h", zorder=6, label="RecoveryMPC")
+
+        # RecoveryMPC_balanced
+        bal_r = next(r for r in t_results
+                     if r["controller"].startswith("RecoveryMPC_balanced"))
+        ax.scatter(bal_r["energy_savings_pct"], bal_r["adequate_rate"],
+                  c="brown", s=120, marker="X", zorder=6, label="RecMPC_balanced")
 
         n_solv = next(r for r in t_results)["n_solvable"]
         n_tot = next(r for r in t_results)["n_total"]
@@ -655,19 +703,23 @@ def main():
         print(f"    CascadingThreshold: {cascade_r['energy_savings_pct']:5.1f}% savings, "
               f"{cascade_r['adequate_rate']:5.1f}% adequate")
         rec_r = next(r for r in t_results
-                     if r["controller"].startswith("RecoveryMPC"))
+                     if r["controller"].startswith("RecoveryMPC("))
+        bal_r = next(r for r in t_results
+                     if r["controller"].startswith("RecoveryMPC_balanced"))
         print(f"    CascThreshold2D:    {cascade2d_r['energy_savings_pct']:5.1f}% savings, "
               f"{cascade2d_r['adequate_rate']:5.1f}% adequate")
         print(f"    RecoveryMPC:        {rec_r['energy_savings_pct']:5.1f}% savings, "
               f"{rec_r['adequate_rate']:5.1f}% adequate")
+        print(f"    RecMPC_balanced:    {bal_r['energy_savings_pct']:5.1f}% savings, "
+              f"{bal_r['adequate_rate']:5.1f}% adequate")
 
     # ── Comparison table ─────────────────────────────────────────
     print(f"\n{'='*70}")
     print(f"  COMPARISON: BayesMPC vs RichMPC vs RecoveryMPC vs Oracle")
     print(f"{'='*70}")
     print(f"  {'Thresh':>6s} | {'BayesMPC':>16s} | {'RichMPC':>16s} | "
-          f"{'RecoveryMPC':>16s} | {'Oracle':>8s} | {'RecMPC model mix':>20s}")
-    print(f"  {'-'*95}")
+          f"{'RecoveryMPC':>16s} | {'RecMPC_bal':>16s} | {'Oracle':>8s}")
+    print(f"  {'-'*90}")
     for threshold in THRESHOLDS:
         t_results = [r for r in all_results if r["threshold"] == threshold]
         oracle_r = next(r for r in t_results if r["controller"] == "Oracle")
@@ -676,13 +728,32 @@ def main():
         rich_r = next(r for r in t_results
                       if r["controller"].startswith("RichMPC"))
         rec_r = next(r for r in t_results
-                     if r["controller"].startswith("RecoveryMPC"))
+                     if r["controller"].startswith("RecoveryMPC("))
+        bal_r = next(r for r in t_results
+                     if r["controller"].startswith("RecoveryMPC_balanced"))
         print(f"  {threshold:>6.2f} | "
               f"{bayes_r['energy_savings_pct']:5.1f}%/{bayes_r['adequate_rate']:5.1f}% | "
               f"{rich_r['energy_savings_pct']:5.1f}%/{rich_r['adequate_rate']:5.1f}% | "
               f"{rec_r['energy_savings_pct']:5.1f}%/{rec_r['adequate_rate']:5.1f}% | "
-              f"{oracle_r['energy_savings_pct']:5.1f}%  | "
-              f"{rec_r['pct_nano']:4.0f}/{rec_r['pct_small']:4.0f}/{rec_r['pct_medium']:4.0f}%")
+              f"{bal_r['energy_savings_pct']:5.1f}%/{bal_r['adequate_rate']:5.1f}% | "
+              f"{oracle_r['energy_savings_pct']:5.1f}%")
+
+    # ── RecoveryMPC vs balanced model distribution ───────────────
+    print(f"\n{'='*70}")
+    print(f"  MODEL DISTRIBUTION: RecoveryMPC vs RecoveryMPC_balanced")
+    print(f"{'='*70}")
+    print(f"  {'Thresh':>6s} | {'RecMPC nano/sm/med':>22s} | {'Balanced nano/sm/med':>22s}")
+    print(f"  {'-'*60}")
+    for threshold in THRESHOLDS:
+        t_results = [r for r in all_results if r["threshold"] == threshold]
+        rec_r = next(r for r in t_results
+                     if r["controller"].startswith("RecoveryMPC("))
+        bal_r = next(r for r in t_results
+                     if r["controller"].startswith("RecoveryMPC_balanced"))
+        print(f"  {threshold:>6.2f} | "
+              f"{rec_r['pct_nano']:4.0f}%/{rec_r['pct_small']:4.0f}%/{rec_r['pct_medium']:4.0f}%"
+              f"          | "
+              f"{bal_r['pct_nano']:4.0f}%/{bal_r['pct_small']:4.0f}%/{bal_r['pct_medium']:4.0f}%")
 
     elapsed = time.time() - t_start
     print(f"\n  Total time: {elapsed:.1f}s", flush=True)
