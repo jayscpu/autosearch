@@ -398,6 +398,42 @@ def optimize_recovery_mpc_balanced(train_df, threshold):
     return best_config
 
 
+def direct_threshold(df, threshold, margin_nano, margin_small):
+    """Mimic oracle: pick cheapest model whose predicted miss rate < T - margin."""
+    selections = []
+    for _, row in df.iterrows():
+        pred_nano = row["pred_nano"]
+        pred_small = row["pred_small"]
+        if pred_nano < threshold - margin_nano:
+            selections.append(0)
+        elif pred_small < threshold - margin_small:
+            selections.append(1)
+        else:
+            selections.append(2)
+    return selections
+
+
+def optimize_direct_threshold(train_df, threshold):
+    margins = [0.00, 0.02, 0.05, 0.08, 0.10, 0.15, 0.20]
+    n_configs = len(margins) ** 2
+    print(f"    Grid search: {n_configs} configs at threshold={threshold}", flush=True)
+
+    best_score = -1.0
+    best_mn, best_ms = 0.10, 0.10
+
+    for mn in margins:
+        for ms in margins:
+            sels = direct_threshold(train_df, threshold, mn, ms)
+            metrics = evaluate(train_df, sels, threshold)
+            score = (metrics["adequate_rate"] / 100
+                     + 0.5 * metrics["energy_savings_pct"] / 100)
+            if score > best_score:
+                best_score = score
+                best_mn, best_ms = mn, ms
+
+    return best_mn, best_ms
+
+
 def rich_mpc(df, lambda_u, lambda_o, threshold):
     """RichMPC: Bayes Risk with both lambda_under and lambda_over."""
     e_norm = {m: ENERGY[m] / E_MEDIUM for m in range(3)}
@@ -595,6 +631,22 @@ def main():
               f"nano={metrics['pct_nano']:.0f}% sm={metrics['pct_small']:.0f}% "
               f"med={metrics['pct_medium']:.0f}%  config={best_bal}", flush=True)
 
+        # DirectThreshold
+        print(f"    Optimizing DirectThreshold...", flush=True)
+        best_mn, best_ms = optimize_direct_threshold(train_df, threshold)
+        sels = direct_threshold(test_df, threshold, best_mn, best_ms)
+        metrics = evaluate(test_df, sels, threshold)
+        metrics["threshold"] = threshold
+        metrics["controller"] = (f"DirectThreshold(mn={best_mn:.2f},"
+                                 f"ms={best_ms:.2f})")
+        all_results.append(metrics)
+        print(f"    {'DirectThreshold':25s}: savings={metrics['energy_savings_pct']:5.1f}%  "
+              f"adequate={metrics['adequate_rate']:5.1f}%  "
+              f"correct={metrics['correct_rate']:5.1f}%  "
+              f"nano={metrics['pct_nano']:.0f}% sm={metrics['pct_small']:.0f}% "
+              f"med={metrics['pct_medium']:.0f}%  "
+              f"mn={best_mn:.2f} ms={best_ms:.2f}", flush=True)
+
     # Save TSV
     cols = ["threshold", "n_solvable", "n_total", "controller",
             "energy_savings_pct", "adequate_rate", "correct_rate",
@@ -664,6 +716,12 @@ def main():
         ax.scatter(bal_r["energy_savings_pct"], bal_r["adequate_rate"],
                   c="brown", s=120, marker="X", zorder=6, label="RecMPC_balanced")
 
+        # DirectThreshold
+        dt_r = next(r for r in t_results
+                    if r["controller"].startswith("DirectThreshold"))
+        ax.scatter(dt_r["energy_savings_pct"], dt_r["adequate_rate"],
+                  c="limegreen", s=120, marker="P", zorder=6, label="DirectThreshold")
+
         n_solv = next(r for r in t_results)["n_solvable"]
         n_tot = next(r for r in t_results)["n_total"]
         ax.set_title(f"T={threshold} ({n_solv}/{n_tot} solvable)", fontsize=11)
@@ -710,15 +768,19 @@ def main():
               f"{cascade2d_r['adequate_rate']:5.1f}% adequate")
         print(f"    RecoveryMPC:        {rec_r['energy_savings_pct']:5.1f}% savings, "
               f"{rec_r['adequate_rate']:5.1f}% adequate")
+        dt_r = next(r for r in t_results
+                    if r["controller"].startswith("DirectThreshold"))
         print(f"    RecMPC_balanced:    {bal_r['energy_savings_pct']:5.1f}% savings, "
               f"{bal_r['adequate_rate']:5.1f}% adequate")
+        print(f"    DirectThreshold:    {dt_r['energy_savings_pct']:5.1f}% savings, "
+              f"{dt_r['adequate_rate']:5.1f}% adequate")
 
     # ── Comparison table ─────────────────────────────────────────
     print(f"\n{'='*70}")
     print(f"  COMPARISON: BayesMPC vs RichMPC vs RecoveryMPC vs Oracle")
     print(f"{'='*70}")
     print(f"  {'Thresh':>6s} | {'BayesMPC':>16s} | {'RichMPC':>16s} | "
-          f"{'RecoveryMPC':>16s} | {'RecMPC_bal':>16s} | {'Oracle':>8s}")
+          f"{'RecoveryMPC':>16s} | {'DirectThresh':>16s} | {'Oracle':>8s}")
     print(f"  {'-'*90}")
     for threshold in THRESHOLDS:
         t_results = [r for r in all_results if r["threshold"] == threshold]
@@ -729,31 +791,30 @@ def main():
                       if r["controller"].startswith("RichMPC"))
         rec_r = next(r for r in t_results
                      if r["controller"].startswith("RecoveryMPC("))
-        bal_r = next(r for r in t_results
-                     if r["controller"].startswith("RecoveryMPC_balanced"))
+        dt_r = next(r for r in t_results
+                    if r["controller"].startswith("DirectThreshold"))
         print(f"  {threshold:>6.2f} | "
               f"{bayes_r['energy_savings_pct']:5.1f}%/{bayes_r['adequate_rate']:5.1f}% | "
               f"{rich_r['energy_savings_pct']:5.1f}%/{rich_r['adequate_rate']:5.1f}% | "
               f"{rec_r['energy_savings_pct']:5.1f}%/{rec_r['adequate_rate']:5.1f}% | "
-              f"{bal_r['energy_savings_pct']:5.1f}%/{bal_r['adequate_rate']:5.1f}% | "
+              f"{dt_r['energy_savings_pct']:5.1f}%/{dt_r['adequate_rate']:5.1f}% | "
               f"{oracle_r['energy_savings_pct']:5.1f}%")
 
-    # ── RecoveryMPC vs balanced model distribution ───────────────
+    # ── Model distribution comparison ──────────────────────────
     print(f"\n{'='*70}")
-    print(f"  MODEL DISTRIBUTION: RecoveryMPC vs RecoveryMPC_balanced")
+    print(f"  MODEL DISTRIBUTION: DirectThreshold vs Oracle")
     print(f"{'='*70}")
-    print(f"  {'Thresh':>6s} | {'RecMPC nano/sm/med':>22s} | {'Balanced nano/sm/med':>22s}")
+    print(f"  {'Thresh':>6s} | {'Oracle nano/sm/med':>22s} | {'DirectTh nano/sm/med':>22s}")
     print(f"  {'-'*60}")
     for threshold in THRESHOLDS:
         t_results = [r for r in all_results if r["threshold"] == threshold]
-        rec_r = next(r for r in t_results
-                     if r["controller"].startswith("RecoveryMPC("))
-        bal_r = next(r for r in t_results
-                     if r["controller"].startswith("RecoveryMPC_balanced"))
+        oracle_r = next(r for r in t_results if r["controller"] == "Oracle")
+        dt_r = next(r for r in t_results
+                    if r["controller"].startswith("DirectThreshold"))
         print(f"  {threshold:>6.2f} | "
-              f"{rec_r['pct_nano']:4.0f}%/{rec_r['pct_small']:4.0f}%/{rec_r['pct_medium']:4.0f}%"
+              f"{oracle_r['pct_nano']:4.0f}%/{oracle_r['pct_small']:4.0f}%/{oracle_r['pct_medium']:4.0f}%"
               f"          | "
-              f"{bal_r['pct_nano']:4.0f}%/{bal_r['pct_small']:4.0f}%/{bal_r['pct_medium']:4.0f}%")
+              f"{dt_r['pct_nano']:4.0f}%/{dt_r['pct_small']:4.0f}%/{dt_r['pct_medium']:4.0f}%")
 
     elapsed = time.time() - t_start
     print(f"\n  Total time: {elapsed:.1f}s", flush=True)
