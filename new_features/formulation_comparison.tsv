@@ -1,0 +1,10 @@
+formulation	seed	target1_name	r_target1	target2_name	r_target2	target3_name	r_target3	best_epoch	elapsed_s
+3tier_absolute	42	miss_rate_nano	0.86106	miss_rate_small	0.703098	miss_rate_medium	0.63375	32	176.0
+3tier_absolute	43	miss_rate_nano	0.846597	miss_rate_small	0.685558	miss_rate_medium	0.600196	25	280.3
+3tier_absolute	44	miss_rate_nano	0.848599	miss_rate_small	0.695118	miss_rate_medium	0.613111	16	185.6
+recovery_unclipped	42	miss_rate_nano	0.872914	recovery_ns_raw	0.767795	recovery_sm_raw	0.212318	2	124.4
+recovery_unclipped	43	miss_rate_nano	0.855277	recovery_ns_raw	0.707874	recovery_sm_raw	0.146904	11	152.5
+recovery_unclipped	44	miss_rate_nano	0.869609	recovery_ns_raw	0.743731	recovery_sm_raw	0.150826	8	131.7
+recovery_clipped_normed	42	miss_rate_nano	0.871756	recovery_ns_raw	0.764676	recovery_sm_clipped	0.258734	2	112.9
+recovery_clipped_normed	43	miss_rate_nano	0.860911	recovery_ns_raw	0.733073	recovery_sm_clipped	0.30578	11	136.8
+recovery_clipped_normed	44	miss_rate_nano	0.868155	recovery_ns_raw	0.72107	recovery_sm_clipped	0.286589	8	129.8
