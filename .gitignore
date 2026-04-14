@@ -18,3 +18,4 @@ new_features/formulation_comparison.log
 new_features/category_ablation.log
 refinedsys/generate_multistep.log
 refinedsys/run_multistep_controller.log
+refinedsys/run_temporal_controllers.log
