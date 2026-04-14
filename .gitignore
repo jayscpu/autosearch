@@ -16,3 +16,5 @@ new_features/spatial95_validation.log
 new_features/feature_selection.log
 new_features/formulation_comparison.log
 new_features/category_ablation.log
+refinedsys/generate_multistep.log
+refinedsys/run_multistep_controller.log
